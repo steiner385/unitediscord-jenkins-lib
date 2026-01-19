@@ -31,7 +31,7 @@ pipeline {
             ],
             token: 'uniteDiscord-ci',
             regexpFilterText: '$ref',
-            regexpFilterExpression: '^refs/heads/(main|feature/.*)$',
+            regexpFilterExpression: '^refs/heads/(main|develop|feature/.*|fix/.*|bugfix/.*|hotfix/.*|chore/.*|refactor/.*|docs/.*|test/.*|ci/.*|release/.*|continuous-claude/.*)$',
             printContributedVariables: true,
             printPostContent: false,
             silentResponse: false
