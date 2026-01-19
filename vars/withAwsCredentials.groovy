@@ -30,7 +30,7 @@ def call(Closure body) {
             'BEDROCK_MODEL_SONNET=us.anthropic.claude-3-5-sonnet-20241022-v2:0',
             'BEDROCK_MODEL_OPUS=us.anthropic.claude-opus-4-5-20251101-v1:0'
         ]) {
-            echo "AWS Bedrock credentials injected (region: ${AWS_REGION})"
+            sh 'echo "AWS Bedrock credentials injected (region: $AWS_REGION)"'
             body()
         }
     }
