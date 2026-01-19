@@ -58,8 +58,12 @@ pipeline {
                         credentialsId: 'github-credentials'
                     ]]
                 ])
-                // Remove stale test directories that may exist from previous builds
-                sh 'rm -rf frontend/frontend || true'
+                // Remove stale test directories and coverage files that may exist from previous builds
+                sh '''
+                    rm -rf frontend/frontend || true
+                    rm -rf coverage || true
+                    find . -path "*/coverage/*" -name "*.xml" -delete 2>/dev/null || true
+                '''
                 script {
                     env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
                 }
