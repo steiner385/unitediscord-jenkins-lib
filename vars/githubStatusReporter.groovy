@@ -95,6 +95,8 @@ def failure(String context, String description = 'Build failed') {
 /**
  * Convenience method to report error status
  */
-def error(String context, String description = 'Build error') {
+def reportError(String context, String description = 'Build error') {
     call(status: 'error', context: context, description: description)
 }
+
+return this
