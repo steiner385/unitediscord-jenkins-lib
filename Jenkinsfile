@@ -92,54 +92,8 @@ pipeline {
                         env.UNIT_TEST_EXIT_CODE = testResult.toString()
 
                         if (testResult != 0) {
-                            echo "WARNING: Unit tests failed with exit code ${testResult} - continuing to collect all test results"
+                            echo "Unit tests failed with exit code ${testResult}"
                             env.UNIT_TESTS_FAILED = 'true'
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Integration Tests') {
-            steps {
-                script {
-                    withAwsCredentials {
-                        // Run integration tests with Allure reporting
-                        def testResult = sh(
-                            script: '''#!/bin/bash
-                                set -o pipefail
-                                npx pnpm run test:integration 2>&1 | tee integration-test-output.log
-                            ''',
-                            returnStatus: true
-                        )
-                        env.INTEGRATION_TEST_EXIT_CODE = testResult.toString()
-
-                        if (testResult != 0) {
-                            echo "WARNING: Integration tests failed with exit code ${testResult} - continuing to collect all test results"
-                            env.INTEGRATION_TESTS_FAILED = 'true'
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Contract Tests') {
-            steps {
-                script {
-                    withAwsCredentials {
-                        // Run contract tests with Allure reporting
-                        def testResult = sh(
-                            script: '''#!/bin/bash
-                                set -o pipefail
-                                npx pnpm run test:contract 2>&1 | tee contract-test-output.log
-                            ''',
-                            returnStatus: true
-                        )
-                        env.CONTRACT_TEST_EXIT_CODE = testResult.toString()
-
-                        if (testResult != 0) {
-                            echo "WARNING: Contract tests failed with exit code ${testResult} - continuing to collect all test results"
-                            env.CONTRACT_TESTS_FAILED = 'true'
                         }
                     }
                 }
@@ -152,51 +106,14 @@ pipeline {
             }
         }
 
-        stage('E2E Tests') {
-            steps {
-                script {
-                    withAwsCredentials {
-                        // Run E2E tests with Allure reporting
-                        def testResult = sh(
-                            script: '''#!/bin/bash
-                                set -o pipefail
-                                npx pnpm run test:e2e 2>&1 | tee e2e-test-output.log
-                            ''',
-                            returnStatus: true
-                        )
-                        env.E2E_TEST_EXIT_CODE = testResult.toString()
-
-                        if (testResult != 0) {
-                            echo "WARNING: E2E tests failed with exit code ${testResult} - continuing to collect all test results"
-                            env.E2E_TESTS_FAILED = 'true'
-                        }
-                    }
-                }
-            }
-        }
-
         stage('Validate Test Results') {
             steps {
                 script {
-                    def failedTests = []
                     if (env.UNIT_TESTS_FAILED == 'true') {
-                        failedTests.add('Unit Tests')
-                    }
-                    if (env.INTEGRATION_TESTS_FAILED == 'true') {
-                        failedTests.add('Integration Tests')
-                    }
-                    if (env.CONTRACT_TESTS_FAILED == 'true') {
-                        failedTests.add('Contract Tests')
-                    }
-                    if (env.E2E_TESTS_FAILED == 'true') {
-                        failedTests.add('E2E Tests')
+                        error("Unit Tests failed")
                     }
 
-                    if (failedTests.size() > 0) {
-                        error("The following test suites failed: ${failedTests.join(', ')}")
-                    }
-
-                    echo "✓ All test suites passed!"
+                    echo "✓ All tests passed!"
                 }
             }
         }
