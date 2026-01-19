@@ -26,7 +26,15 @@ pipeline {
     stages {
         stage('Initialize') {
             steps {
-                checkout scm
+                // Checkout uniteDiscord repo (triggered by webhook with $ref and $after variables)
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: env.after ?: 'HEAD']],
+                    userRemoteConfigs: [[
+                        url: "https://github.com/${env.GITHUB_OWNER}/${env.GITHUB_REPO}.git",
+                        credentialsId: 'github-credentials'
+                    ]]
+                ])
                 // Remove stale test directories that may exist from previous builds
                 sh 'rm -rf frontend/frontend || true'
                 script {
