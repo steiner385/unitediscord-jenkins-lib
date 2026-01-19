@@ -29,7 +29,7 @@ pipeline {
                 // Checkout uniteDiscord repo (triggered by webhook with $ref and $after variables)
                 checkout([
                     $class: 'GitSCM',
-                    branches: [[name: env.after ?: 'HEAD']],
+                    branches: [[name: env.ref ?: '*/main']],
                     userRemoteConfigs: [[
                         url: "https://github.com/${env.GITHUB_OWNER}/${env.GITHUB_REPO}.git",
                         credentialsId: 'github-credentials'
