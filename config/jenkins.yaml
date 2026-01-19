@@ -1,0 +1,367 @@
+# Jenkins Configuration as Code (JCasC)
+# uniteDiscord CI/CD Pipeline Configuration
+#
+# This file configures Jenkins for uniteDiscord CI/CD pipelines.
+# Deploy by copying to Jenkins controller's $JENKINS_HOME/casc_configs/
+
+jenkins:
+  systemMessage: |
+    uniteDiscord CI/CD Pipeline Server
+    Library: https://github.com/steiner385/unitediscord-jenkins-lib
+    URL: https://jenkins.kindash.com
+
+  numExecutors: 0
+  mode: EXCLUSIVE
+  quietPeriod: 5
+  scmCheckoutRetryCount: 3
+
+  securityRealm:
+    local:
+      allowsSignup: false
+      users: []
+
+  authorizationStrategy:
+    globalMatrix:
+      entries:
+        - user:
+            name: "admin"
+            permissions:
+              - "Overall/Administer"
+        - user:
+            name: "tony"
+            permissions:
+              - "Overall/Administer"
+        - group:
+            name: "authenticated"
+            permissions:
+              - "Overall/Read"
+
+  # Shared runner pool - 8 agents with capability-based labels
+  nodes:
+    - permanent:
+        name: "runner-1"
+        remoteFS: "/home/jenkins/agent"
+        numExecutors: 2
+        mode: NORMAL
+        labelString: "linux docker unit integration"
+        launcher:
+          inbound:
+            workDirSettings:
+              disabled: false
+              internalDir: "remoting"
+        retentionStrategy: "always"
+
+    - permanent:
+        name: "runner-2"
+        remoteFS: "/home/jenkins/agent"
+        numExecutors: 2
+        mode: NORMAL
+        labelString: "linux docker unit integration"
+        launcher:
+          inbound:
+            workDirSettings:
+              disabled: false
+              internalDir: "remoting"
+        retentionStrategy: "always"
+
+    - permanent:
+        name: "runner-3"
+        remoteFS: "/home/jenkins/agent"
+        numExecutors: 1
+        mode: NORMAL
+        labelString: "linux docker e2e playwright"
+        launcher:
+          inbound:
+            workDirSettings:
+              disabled: false
+              internalDir: "remoting"
+        retentionStrategy: "always"
+
+    - permanent:
+        name: "runner-4"
+        remoteFS: "/home/jenkins/agent"
+        numExecutors: 1
+        mode: NORMAL
+        labelString: "linux docker e2e playwright"
+        launcher:
+          inbound:
+            workDirSettings:
+              disabled: false
+              internalDir: "remoting"
+        retentionStrategy: "always"
+
+    - permanent:
+        name: "runner-5"
+        remoteFS: "/home/jenkins/agent"
+        numExecutors: 2
+        mode: NORMAL
+        labelString: "linux docker unit integration"
+        launcher:
+          inbound:
+            workDirSettings:
+              disabled: false
+              internalDir: "remoting"
+        retentionStrategy: "always"
+
+    - permanent:
+        name: "runner-6"
+        remoteFS: "/home/jenkins/agent"
+        numExecutors: 2
+        mode: NORMAL
+        labelString: "linux docker unit integration"
+        launcher:
+          inbound:
+            workDirSettings:
+              disabled: false
+              internalDir: "remoting"
+        retentionStrategy: "always"
+
+    - permanent:
+        name: "runner-7"
+        remoteFS: "/home/jenkins/agent"
+        numExecutors: 1
+        mode: NORMAL
+        labelString: "linux docker e2e playwright"
+        launcher:
+          inbound:
+            workDirSettings:
+              disabled: false
+              internalDir: "remoting"
+        retentionStrategy: "always"
+
+    - permanent:
+        name: "runner-8"
+        remoteFS: "/home/jenkins/agent"
+        numExecutors: 1
+        mode: NORMAL
+        labelString: "linux docker e2e playwright"
+        launcher:
+          inbound:
+            workDirSettings:
+              disabled: false
+              internalDir: "remoting"
+        retentionStrategy: "always"
+
+  globalNodeProperties:
+    - envVars:
+        env:
+          - key: "CI"
+            value: "true"
+          - key: "NODE_ENV"
+            value: "test"
+          - key: "JWT_SECRET"
+            value: "test-jwt-secret"
+          - key: "ENCRYPTION_KEY"
+            value: "test-encryption-key-32-chars-long!"
+
+security:
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: false
+
+unclassified:
+  # Global Pipeline Library - points to this repository
+  globalLibraries:
+    libraries:
+      - name: "unitediscord-lib"
+        defaultVersion: "main"
+        implicit: false
+        allowVersionOverride: true
+        retriever:
+          modernSCM:
+            scm:
+              git:
+                remote: "https://github.com/steiner385/unitediscord-jenkins-lib.git"
+                credentialsId: "github-credentials"
+
+  location:
+    adminAddress: "admin@kindash.com"
+    url: "https://jenkins.kindash.com/"
+
+  gitHubConfiguration:
+    apiRateLimitChecker: ThrottleOnOver
+
+  gitHubPluginConfig:
+    configs:
+      - credentialsId: "github-token"
+        name: "GitHub"
+        apiUrl: "https://api.github.com"
+        manageHooks: true
+
+  buildDiscarders:
+    configuredBuildDiscarders:
+      - "jobBuildDiscarder"
+
+  timestamper:
+    allPipelines: true
+
+tool:
+  git:
+    installations:
+      - name: "Default"
+        home: "git"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-credentials"
+              username: "${GITHUB_USERNAME}"
+              password: "${GITHUB_TOKEN}"
+              description: "GitHub credentials"
+
+          - string:
+              scope: GLOBAL
+              id: "github-token"
+              secret: "${GITHUB_TOKEN}"
+              description: "GitHub Personal Access Token"
+
+          - string:
+              scope: GLOBAL
+              id: "database-url"
+              secret: "postgresql://ci_user:ci_password@localhost:5433/ci_test_db"
+              description: "Database URL for CI tests"
+
+          - string:
+              scope: GLOBAL
+              id: "aws-access-key-id"
+              secret: "${AWS_ACCESS_KEY_ID}"
+              description: "AWS Access Key ID for Bedrock"
+
+          - string:
+              scope: GLOBAL
+              id: "aws-secret-access-key"
+              secret: "${AWS_SECRET_ACCESS_KEY}"
+              description: "AWS Secret Access Key for Bedrock"
+
+          - string:
+              scope: GLOBAL
+              id: "aws-region"
+              secret: "${AWS_REGION:-us-east-1}"
+              description: "AWS Region for Bedrock"
+
+# Job Definitions
+# All jobs load Jenkinsfiles from this lib repo, NOT from the application repo
+# Triggers are defined in Jenkinsfiles (GenericTrigger), not here
+jobs:
+  # Main CI Pipeline - triggered by webhook (GenericTrigger in Jenkinsfile)
+  - script: |
+      pipelineJob('unitediscord-ci') {
+        description('uniteDiscord CI Pipeline - triggered by GitHub webhook')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/steiner385/unitediscord-jenkins-lib.git')
+                  credentials('github-credentials')
+                }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+          }
+        }
+        properties {
+          githubProjectUrl('https://github.com/steiner385/uniteDiscord')
+        }
+        logRotator {
+          numToKeep(30)
+        }
+      }
+
+  # Nightly Build - cron triggered
+  - script: |
+      pipelineJob('unitediscord-nightly') {
+        description('Nightly comprehensive build - full test suite, security audits')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/steiner385/unitediscord-jenkins-lib.git')
+                  credentials('github-credentials')
+                }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile.nightly')
+          }
+        }
+        triggers {
+          cron('0 2 * * *')
+        }
+        logRotator {
+          numToKeep(14)
+        }
+      }
+
+  # Unit Tests - manually triggered
+  - script: |
+      pipelineJob('unitediscord-unit') {
+        description('Run uniteDiscord unit tests only')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/steiner385/unitediscord-jenkins-lib.git')
+                  credentials('github-credentials')
+                }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile.unit')
+          }
+        }
+        logRotator {
+          numToKeep(30)
+        }
+      }
+
+  # Integration Tests - manually triggered
+  - script: |
+      pipelineJob('unitediscord-integration') {
+        description('Run uniteDiscord integration tests only')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/steiner385/unitediscord-jenkins-lib.git')
+                  credentials('github-credentials')
+                }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile.integration')
+          }
+        }
+        logRotator {
+          numToKeep(30)
+        }
+      }
+
+  # E2E Tests - manually triggered
+  - script: |
+      pipelineJob('unitediscord-e2e') {
+        description('Run uniteDiscord E2E tests only')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/steiner385/unitediscord-jenkins-lib.git')
+                  credentials('github-credentials')
+                }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile.e2e')
+          }
+        }
+        logRotator {
+          numToKeep(30)
+        }
+      }
