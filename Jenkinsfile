@@ -146,6 +146,12 @@ pipeline {
             }
         }
 
+        stage('Build') {
+            steps {
+                sh 'npx pnpm run build'
+            }
+        }
+
         stage('E2E Tests') {
             steps {
                 script {
@@ -166,12 +172,6 @@ pipeline {
                         }
                     }
                 }
-            }
-        }
-
-        stage('Build') {
-            steps {
-                sh 'npx pnpm run build'
             }
         }
 
