@@ -2,10 +2,16 @@
 /**
  * Main CI Pipeline for uniteDiscord
  *
- * Uses local shared library functions from vars/
+ * Loads shared library functions from vars/ directory of this repository
  */
 
-@Library("unitediscord-lib") _
+// Load shared library directly from GitHub (self-contained, no global config required)
+library identifier: 'unitediscord-lib@main',
+    retriever: modernSCM([
+        $class: 'GitSCMSource',
+        remote: 'https://github.com/steiner385/unitediscord-jenkins-lib.git',
+        credentialsId: 'github-credentials'
+    ])
 
 pipeline {
     agent any
