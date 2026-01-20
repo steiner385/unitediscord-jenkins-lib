@@ -2,16 +2,16 @@
 /**
  * uniteDiscord Multi-Branch Pipeline
  *
- * Full CI pipeline: Lint, Unit Tests, Integration Tests, Build
+ * Full CI pipeline: Lint, Unit Tests, Integration Tests, Contract Tests, Build
  *
  * Stages:
  *   - Initialize: Setup, checkout, and GitHub status reporting
  *   - Install Dependencies: pnpm install with frozen lockfile
  *   - Build Packages: Build shared packages and generate Prisma client
  *   - Lint: ESLint and code quality checks
- *   - Unit Tests: Run unit tests (backend + frontend) - 1632 tests
- *   - Integration Tests: Run integration tests - 105 tests (optional, skipped by build stability)
- *   - Contract Tests: API contract validation tests (0 tests currently)
+ *   - Unit Tests: Run unit tests (backend + frontend) - 1,221 tests
+ *   - Integration Tests: Run integration tests - 124 tests (always run)
+ *   - Contract Tests: API contract validation tests (framework ready)
  *   - Build: Production build and artifact generation
  *
  * Multi-branch Jenkins provides these environment variables automatically:
