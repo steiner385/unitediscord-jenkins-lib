@@ -243,12 +243,11 @@ credentials:
 
 # Job Definitions
 # All jobs load Jenkinsfiles from this lib repo, NOT from the application repo
-# Triggers are defined in Jenkinsfiles (GenericTrigger), not here
 jobs:
   # ==========================================================================
-  # NEW: Multi-branch Pipeline (replaces unitediscord-ci after migration)
+  # Multi-branch Pipeline - Primary CI/CD
   # ==========================================================================
-  # This creates per-branch/PR jobs automatically with:
+  # Automatically builds all branches and PRs with:
   # - PR-specific builds with E2E tests
   # - Branch-specific deployment (main → prod, develop → staging)
   # - Orphan branch cleanup after 60 days
@@ -317,38 +316,10 @@ jobs:
       }
 
   # ==========================================================================
-  # EXISTING JOBS (keep during migration period, remove after 2 weeks stable)
+  # Nightly Build - Scheduled comprehensive tests
   # ==========================================================================
-
-  # Main CI Pipeline - triggered by webhook (GenericTrigger in Jenkinsfile)
   - script: |
-      pipelineJob('unitediscord-ci') {
-        description('uniteDiscord CI Pipeline - triggered by GitHub webhook')
-        definition {
-          cpsScm {
-            scm {
-              git {
-                remote {
-                  url('https://github.com/steiner385/unitediscord-jenkins-lib.git')
-                  credentials('github-credentials')
-                }
-                branch('*/main')
-              }
-            }
-            scriptPath('Jenkinsfile')
-          }
-        }
-        properties {
-          githubProjectUrl('https://github.com/steiner385/uniteDiscord')
-        }
-        logRotator {
-          numToKeep(30)
-        }
-      }
-
-  # Nightly Build - cron triggered
-  - script: |
-      pipelineJob('unitediscord-nightly') {
+      pipelineJob('uniteDiscord-nightly') {
         description('Nightly comprehensive build - full test suite, security audits')
         definition {
           cpsScm {
@@ -369,74 +340,5 @@ jobs:
         }
         logRotator {
           numToKeep(14)
-        }
-      }
-
-  # Unit Tests - manually triggered
-  - script: |
-      pipelineJob('unitediscord-unit') {
-        description('Run uniteDiscord unit tests only')
-        definition {
-          cpsScm {
-            scm {
-              git {
-                remote {
-                  url('https://github.com/steiner385/unitediscord-jenkins-lib.git')
-                  credentials('github-credentials')
-                }
-                branch('*/main')
-              }
-            }
-            scriptPath('Jenkinsfile.unit')
-          }
-        }
-        logRotator {
-          numToKeep(30)
-        }
-      }
-
-  # Integration Tests - manually triggered
-  - script: |
-      pipelineJob('unitediscord-integration') {
-        description('Run uniteDiscord integration tests only')
-        definition {
-          cpsScm {
-            scm {
-              git {
-                remote {
-                  url('https://github.com/steiner385/unitediscord-jenkins-lib.git')
-                  credentials('github-credentials')
-                }
-                branch('*/main')
-              }
-            }
-            scriptPath('Jenkinsfile.integration')
-          }
-        }
-        logRotator {
-          numToKeep(30)
-        }
-      }
-
-  # E2E Tests - manually triggered
-  - script: |
-      pipelineJob('unitediscord-e2e') {
-        description('Run uniteDiscord E2E tests only')
-        definition {
-          cpsScm {
-            scm {
-              git {
-                remote {
-                  url('https://github.com/steiner385/unitediscord-jenkins-lib.git')
-                  credentials('github-credentials')
-                }
-                branch('*/main')
-              }
-            }
-            scriptPath('Jenkinsfile.e2e')
-          }
-        }
-        logRotator {
-          numToKeep(30)
         }
       }
