@@ -269,26 +269,28 @@ def call() {
                             dockerCompose('ps', 'docker-compose.e2e.yml')
 
                             // Setup E2E database (migrations + seed data)
+                            // Run from inside Docker network using docker compose exec
                             echo "Setting up E2E database..."
                             sh '''
-                                cd packages/db-models
-
-                                # Wait for postgres to be ready for connections (retry logic)
-                                echo "Waiting for postgres to accept connections..."
-                                for i in 1 2 3 4 5; do
-                                    if echo "SELECT 1;" | DATABASE_URL="postgresql://unite_test:unite_test@localhost:5434/unite_test" npx prisma db execute --stdin 2>/dev/null; then
-                                        echo "Postgres is ready for connections"
-                                        break
-                                    fi
-                                    echo "Attempt $i: Postgres not ready yet, waiting 3 seconds..."
-                                    sleep 3
-                                done
-
+                                # Run migrations from inside a container on the Docker network
+                                # This avoids host-to-container networking issues
                                 echo "Running Prisma migrations on E2E database..."
-                                DATABASE_URL="postgresql://unite_test:unite_test@localhost:5434/unite_test" npx prisma migrate deploy
-                                echo "Seeding E2E database with test data..."
-                                DATABASE_URL="postgresql://unite_test:unite_test@localhost:5434/unite_test" node prisma/seed.js
-                                cd ../..
+                                docker compose -f docker-compose.e2e.yml exec -T postgres sh -c "
+                                    until pg_isready -U unite_test -d unite_test; do
+                                        echo 'Waiting for postgres...';
+                                        sleep 1;
+                                    done
+                                    echo 'Postgres is ready'
+                                "
+
+                                # Copy db-models into discussion-service container and run migrations there
+                                docker cp packages/db-models tibranch_feat_e2e-docker-compose-discussion-service:/app/
+
+                                docker compose -f docker-compose.e2e.yml exec -T discussion-service sh -c "
+                                    cd /app/db-models && \\
+                                    DATABASE_URL='postgresql://unite_test:unite_test@postgres:5432/unite_test' npx prisma migrate deploy && \\
+                                    DATABASE_URL='postgresql://unite_test:unite_test@postgres:5432/unite_test' node prisma/seed.js
+                                "
                             '''
                             echo "E2E database ready"
 
