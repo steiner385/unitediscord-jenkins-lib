@@ -171,6 +171,7 @@ def call() {
                     anyOf {
                         branch 'main'
                         branch 'develop'
+                        branch 'feat/e2e-docker-compose'
                     }
                 }
                 steps {
