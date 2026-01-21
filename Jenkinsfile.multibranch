@@ -185,8 +185,8 @@ pipeline {
                         echo "Test Suite: Playwright (301 tests, 240 active)"
 
                         sh '''
-                            # Install Playwright browsers (chromium only for CI)
-                            npx playwright install --with-deps chromium
+                            # Install Playwright browsers (chromium only for CI, no system deps)
+                            npx playwright install chromium
 
                             # Build frontend for preview mode
                             cd frontend
