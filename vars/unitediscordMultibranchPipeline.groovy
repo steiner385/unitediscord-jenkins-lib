@@ -186,19 +186,21 @@ def call() {
                                 # Install Playwright browsers (chromium only for CI, no system deps)
                                 npx playwright install chromium
 
-                                # Build all services and frontend with Docker Compose
+                                # Build all services and frontend with Docker Compose (try v2, fall back to v1)
                                 echo "Building Docker images for E2E environment..."
-                                docker compose -f docker-compose.e2e.yml build --parallel
+                                (docker compose -f docker-compose.e2e.yml build --parallel 2>/dev/null || \
+                                 docker-compose -f docker-compose.e2e.yml build --parallel)
 
                                 # Start all services (infrastructure + backend + frontend)
                                 echo "Starting all services (infrastructure, 8 microservices, frontend)..."
-                                docker compose -f docker-compose.e2e.yml up -d
+                                (docker compose -f docker-compose.e2e.yml up -d 2>/dev/null || \
+                                 docker-compose -f docker-compose.e2e.yml up -d)
 
                                 # Wait for infrastructure services to be healthy
                                 echo "Waiting for infrastructure services to be healthy..."
-                                timeout 60 sh -c 'until docker compose -f docker-compose.e2e.yml ps | grep -E "(postgres|redis)" | grep -q "healthy"; do sleep 2; done' || {
+                                timeout 60 sh -c 'until (docker compose -f docker-compose.e2e.yml ps 2>/dev/null || docker-compose -f docker-compose.e2e.yml ps) | grep -E "(postgres|redis)" | grep -q "healthy"; do sleep 2; done' || {
                                     echo "Warning: Timed out waiting for infrastructure services"
-                                    docker compose -f docker-compose.e2e.yml ps
+                                    (docker compose -f docker-compose.e2e.yml ps 2>/dev/null || docker-compose -f docker-compose.e2e.yml ps)
                                 }
 
                                 # Wait a bit for backend services to start
@@ -207,7 +209,7 @@ def call() {
 
                                 # Check service health
                                 echo "Service status:"
-                                docker compose -f docker-compose.e2e.yml ps
+                                (docker compose -f docker-compose.e2e.yml ps 2>/dev/null || docker-compose -f docker-compose.e2e.yml ps)
 
                                 # Run Playwright tests against containerized environment
                                 cd frontend
@@ -218,11 +220,13 @@ def call() {
 
                                     # Show service logs for debugging
                                     echo "=== Service Logs (last 50 lines) ==="
-                                    docker compose -f docker-compose.e2e.yml logs --tail=50
+                                    (docker compose -f docker-compose.e2e.yml logs --tail=50 2>/dev/null || \
+                                     docker-compose -f docker-compose.e2e.yml logs --tail=50)
 
                                     # Cleanup Docker services
                                     echo "Stopping and removing all E2E services..."
-                                    docker compose -f docker-compose.e2e.yml down -v
+                                    (docker compose -f docker-compose.e2e.yml down -v 2>/dev/null || \
+                                     docker-compose -f docker-compose.e2e.yml down -v) || true
 
                                     exit $EXIT_CODE
                                 }
@@ -236,13 +240,14 @@ def call() {
 
                                 # Cleanup Docker services
                                 echo "Stopping and removing all E2E services..."
-                                docker compose -f docker-compose.e2e.yml down -v
+                                (docker compose -f docker-compose.e2e.yml down -v 2>/dev/null || \
+                                 docker-compose -f docker-compose.e2e.yml down -v) || true
                             '''
 
                             echo "=== E2E Tests Complete ==="
                         } catch (Exception e) {
                             // Ensure cleanup happens even on failure
-                            sh 'docker compose -f docker-compose.e2e.yml down -v 2>/dev/null || true'
+                            sh '(docker compose -f docker-compose.e2e.yml down -v 2>/dev/null || docker-compose -f docker-compose.e2e.yml down -v 2>/dev/null) || true'
 
                             echo "⚠️  E2E tests failed"
                             echo "Error: ${e.message}"
