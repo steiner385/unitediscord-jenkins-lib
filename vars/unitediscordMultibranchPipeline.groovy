@@ -199,9 +199,37 @@ def call() {
                             dockerCompose.safe('down -v --remove-orphans', 'docker-compose.test.yml')
                             dockerCompose.safe('down -v --remove-orphans', 'docker-compose.e2e.yml')
 
+                            // Diagnostic: Check what's using E2E ports before cleanup
+                            echo "Checking processes on E2E ports (5433, 6380, 4567)..."
+                            sh '''
+                                echo "=== Processes on port 5433 (postgres) ==="
+                                lsof -i :5433 2>/dev/null || echo "No process found on port 5433"
+                                echo "=== Processes on port 6380 (redis) ==="
+                                lsof -i :6380 2>/dev/null || echo "No process found on port 6380"
+                                echo "=== Processes on port 4567 (localstack) ==="
+                                lsof -i :4567 2>/dev/null || echo "No process found on port 4567"
+                            '''
+
+                            // Force kill any processes on E2E ports
+                            echo "Killing processes on E2E ports..."
+                            sh '''
+                                # Kill processes on ports used by E2E environment
+                                for port in 5433 6380 4567; do
+                                    echo "Killing processes on port $port..."
+                                    (lsof -ti :$port 2>/dev/null || fuser $port/tcp 2>/dev/null) | xargs -r kill -9 2>/dev/null || true
+                                done
+                            '''
+
                             // Wait for Docker to release ports (prevent "port already allocated" errors)
-                            echo "Waiting for Docker to release ports..."
-                            sh 'sleep 5'
+                            echo "Waiting for Docker to release ports and clean up network namespaces..."
+                            sh 'sleep 10'
+
+                            // Verify cleanup
+                            echo "Verifying no containers remain..."
+                            sh '''
+                                echo "=== Remaining containers ==="
+                                docker ps -a | grep -E "(unite-.*-(test|e2e)|postgres|redis|localstack)" || echo "No test/e2e containers found"
+                            '''
 
                             // Install Playwright browsers
                             sh 'npx playwright install chromium'
