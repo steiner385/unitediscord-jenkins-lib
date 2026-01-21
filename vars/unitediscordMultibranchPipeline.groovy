@@ -179,17 +179,24 @@ def call() {
                             echo "Test Suite: Playwright (301 tests, 240 active)"
                             echo "Environment: Full production-like stack (infrastructure + all microservices + frontend)"
 
-                            // Clean up any existing E2E containers from previous runs
-                            echo "Cleaning up existing E2E containers..."
+                            // Clean up any existing E2E and integration test containers
+                            echo "Cleaning up existing containers and ports..."
 
-                            // Force remove all E2E containers directly (handles stale containers that docker-compose can't read)
+                            // Force remove all E2E containers (handles stale containers)
                             sh '''
-                                # Remove all containers with unite-*-e2e naming pattern
+                                # Remove E2E containers
                                 docker ps -a -q -f "name=unite-.*-e2e" | xargs -r docker rm -f 2>/dev/null || true
                                 docker ps -a -q -f "name=.*_feat_e2e-docker-compose.*" | xargs -r docker rm -f 2>/dev/null || true
+
+                                # Remove integration test containers (they use same ports: 5433, 6380, 4567)
+                                docker ps -a -q -f "name=unite-.*-test" | xargs -r docker rm -f 2>/dev/null || true
+                                docker ps -a -q -f "name=.*postgres.*test" | xargs -r docker rm -f 2>/dev/null || true
+                                docker ps -a -q -f "name=.*redis.*test" | xargs -r docker rm -f 2>/dev/null || true
+                                docker ps -a -q -f "name=.*localstack.*test" | xargs -r docker rm -f 2>/dev/null || true
                             '''
 
-                            // Remove volumes and networks
+                            // Remove volumes and networks for both test and e2e
+                            dockerCompose.safe('down -v --remove-orphans', 'docker-compose.test.yml')
                             dockerCompose.safe('down -v --remove-orphans', 'docker-compose.e2e.yml')
 
                             // Wait for Docker to release ports (prevent "port already allocated" errors)
