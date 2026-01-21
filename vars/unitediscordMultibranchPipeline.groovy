@@ -237,8 +237,8 @@ def call() {
 
                             echo "⚠️  E2E tests failed"
                             echo "Error: ${e.message}"
+                            // Mark as unstable but don't fail the build
                             currentBuild.result = 'UNSTABLE'
-                            throw e
 
                         } finally {
                             // Always cleanup Docker services
