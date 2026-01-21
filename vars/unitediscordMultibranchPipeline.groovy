@@ -268,6 +268,18 @@ def call() {
                             echo "Service status:"
                             dockerCompose('ps', 'docker-compose.e2e.yml')
 
+                            // Setup E2E database (migrations + seed data)
+                            echo "Setting up E2E database..."
+                            sh '''
+                                cd packages/db-models
+                                echo "Running Prisma migrations on E2E database..."
+                                DATABASE_URL="postgresql://unite_test:unite_test@localhost:5433/unite_test" npx prisma migrate deploy
+                                echo "Seeding E2E database with test data..."
+                                DATABASE_URL="postgresql://unite_test:unite_test@localhost:5433/unite_test" node prisma/seed.js
+                                cd ../..
+                            '''
+                            echo "E2E database ready"
+
                             // Run Playwright tests
                             sh '''
                                 cd frontend
