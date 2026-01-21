@@ -192,6 +192,10 @@ def call() {
                             // Remove volumes and networks
                             dockerCompose.safe('down -v --remove-orphans', 'docker-compose.e2e.yml')
 
+                            // Wait for Docker to release ports (prevent "port already allocated" errors)
+                            echo "Waiting for Docker to release ports..."
+                            sh 'sleep 5'
+
                             // Install Playwright browsers
                             sh 'npx playwright install chromium'
 
