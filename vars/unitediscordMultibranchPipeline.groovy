@@ -231,8 +231,8 @@ def call() {
                                 docker ps -a | grep -E "(unite-.*-(test|e2e)|postgres|redis|localstack)" || echo "No test/e2e containers found"
                             '''
 
-                            // Install Playwright browsers with system dependencies
-                            sh 'npx playwright install --with-deps chromium'
+                            // Install Playwright browsers (dependencies already in agent image)
+                            sh 'npx playwright install chromium'
 
                             // Build Docker images
                             echo "Building Docker images for E2E environment..."
