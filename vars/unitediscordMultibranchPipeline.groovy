@@ -179,6 +179,10 @@ def call() {
                             echo "Test Suite: Playwright (301 tests, 240 active)"
                             echo "Environment: Full production-like stack (infrastructure + all microservices + frontend)"
 
+                            // Clean up any existing E2E containers from previous runs
+                            echo "Cleaning up existing E2E containers..."
+                            dockerCompose.safe('down -v --remove-orphans', 'docker-compose.e2e.yml')
+
                             // Install Playwright browsers
                             sh 'npx playwright install chromium'
 
