@@ -164,13 +164,15 @@ def call() {
             }
 
             stage('E2E Tests') {
-                when {
-                    expression {
-                        env.BRANCH_NAME == 'main' ||
-                        env.BRANCH_NAME == 'develop' ||
-                        env.BRANCH_NAME == 'feat/e2e-docker-compose'
-                    }
-                }
+                // Temporarily disabled when condition to validate E2E infrastructure
+                // TODO: Re-enable once E2E tests are validated
+                // when {
+                //     expression {
+                //         env.BRANCH_NAME == 'main' ||
+                //         env.BRANCH_NAME == 'develop' ||
+                //         env.BRANCH_NAME == 'feat/e2e-docker-compose'
+                //     }
+                // }
                 steps {
                     script {
                         try {
