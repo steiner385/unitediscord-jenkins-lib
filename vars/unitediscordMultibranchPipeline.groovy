@@ -334,7 +334,7 @@ def call() {
                                     -e E2E_DOCKER=true \
                                     -e PLAYWRIGHT_BASE_URL=http://frontend:80 \
                                     -e SKIP_GLOBAL_SETUP_WAIT=true \
-                                    mcr.microsoft.com/playwright:v1.49.1-noble \
+                                    mcr.microsoft.com/playwright:v1.57.0-noble \
                                     bash -c "npm install && npx playwright test --reporter=list,junit,json" || {
                                         EXIT_CODE=$?
                                         echo "Playwright tests exited with code $EXIT_CODE"
