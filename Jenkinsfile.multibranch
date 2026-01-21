@@ -171,13 +171,7 @@ pipeline {
         }
 
         stage('E2E Tests') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch 'develop'
-                    branch 'feat/e2e-docker-compose'
-                }
-            }
+            // When condition removed - E2E tests will run on all branches
             steps {
                 script {
                     try {
