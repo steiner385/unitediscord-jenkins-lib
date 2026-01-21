@@ -164,15 +164,8 @@ def call() {
             }
 
             stage('E2E Tests') {
-                // Temporarily disabled when condition to validate E2E infrastructure
-                // TODO: Re-enable once E2E tests are validated
-                // when {
-                //     expression {
-                //         env.BRANCH_NAME == 'main' ||
-                //         env.BRANCH_NAME == 'develop' ||
-                //         env.BRANCH_NAME == 'feat/e2e-docker-compose'
-                //     }
-                // }
+                // When condition physically removed - Jenkins DSL doesn't support commenting out structural elements
+                // The when block will be re-added after E2E infrastructure is validated
                 steps {
                     script {
                         try {
