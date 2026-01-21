@@ -273,9 +273,9 @@ def call() {
                             sh '''
                                 cd packages/db-models
                                 echo "Running Prisma migrations on E2E database..."
-                                DATABASE_URL="postgresql://unite_test:unite_test@localhost:5433/unite_test" npx prisma migrate deploy
+                                DATABASE_URL="postgresql://unite_test:unite_test@localhost:5434/unite_test" npx prisma migrate deploy
                                 echo "Seeding E2E database with test data..."
-                                DATABASE_URL="postgresql://unite_test:unite_test@localhost:5433/unite_test" node prisma/seed.js
+                                DATABASE_URL="postgresql://unite_test:unite_test@localhost:5434/unite_test" node prisma/seed.js
                                 cd ../..
                             '''
                             echo "E2E database ready"
