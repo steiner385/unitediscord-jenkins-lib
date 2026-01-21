@@ -304,8 +304,8 @@ def call() {
                             // Move test results
                             sh '''
                                 mkdir -p coverage
-                                mv frontend/playwright-report/junit.xml coverage/e2e-junit.xml 2>/dev/null || true
-                                mv frontend/allure-results ../allure-results/e2e 2>/dev/null || true
+                                mv frontend/playwright-report/junit.xml coverage/e2e-junit.xml 2>/dev/null || echo "No Playwright report to move"
+                                mv frontend/allure-results ../allure-results/e2e 2>/dev/null || echo "No Allure results to move"
                             '''
 
                             echo "=== E2E Tests Complete ==="
