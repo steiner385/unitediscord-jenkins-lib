@@ -183,38 +183,49 @@ pipeline {
                         echo "=== Running E2E Tests ==="
                         echo "Branch: ${env.BRANCH_NAME}"
                         echo "Test Suite: Playwright (301 tests, 240 active)"
-                        echo "Note: Currently tests infrastructure only (postgres, redis, localstack)"
-                        echo "TODO: Start backend microservices for full E2E coverage"
+                        echo "Environment: Full production-like stack (infrastructure + all microservices + frontend)"
 
                         sh '''
                             # Install Playwright browsers (chromium only for CI, no system deps)
                             npx playwright install chromium
 
-                            # Start Docker infrastructure services
-                            echo "Starting Docker services (postgres, redis, localstack)..."
-                            docker-compose -f docker-compose.test.yml up -d
+                            # Build all services and frontend with Docker Compose
+                            echo "Building Docker images for E2E environment..."
+                            docker-compose -f docker-compose.e2e.yml build --parallel
 
-                            # Wait for services to be ready
-                            echo "Waiting for services to be healthy..."
-                            timeout 60 sh -c 'until docker-compose -f docker-compose.test.yml ps | grep -q "healthy"; do sleep 2; done' || {
-                                echo "Warning: Timed out waiting for all services to be healthy"
-                                docker-compose -f docker-compose.test.yml ps
+                            # Start all services (infrastructure + backend + frontend)
+                            echo "Starting all services (infrastructure, 8 microservices, frontend)..."
+                            docker-compose -f docker-compose.e2e.yml up -d
+
+                            # Wait for infrastructure services to be healthy
+                            echo "Waiting for infrastructure services to be healthy..."
+                            timeout 60 sh -c 'until docker-compose -f docker-compose.e2e.yml ps | grep -E "(postgres|redis)" | grep -q "healthy"; do sleep 2; done' || {
+                                echo "Warning: Timed out waiting for infrastructure services"
+                                docker-compose -f docker-compose.e2e.yml ps
                             }
 
-                            # Build frontend for preview mode
-                            cd frontend
-                            npm run build
+                            # Wait a bit for backend services to start
+                            echo "Waiting for backend services to start..."
+                            sleep 15
 
-                            # Run Playwright tests in CI mode
-                            # Playwright webServer will start Vite preview server automatically
-                            CI=true npx playwright test --reporter=list,junit,json || {
+                            # Check service health
+                            echo "Service status:"
+                            docker-compose -f docker-compose.e2e.yml ps
+
+                            # Run Playwright tests against containerized environment
+                            cd frontend
+                            E2E_DOCKER=true npx playwright test --reporter=list,junit,json || {
                                 EXIT_CODE=$?
                                 cd ..
                                 echo "Playwright tests exited with code $EXIT_CODE"
 
+                                # Show service logs for debugging
+                                echo "=== Service Logs (last 50 lines) ==="
+                                docker-compose -f docker-compose.e2e.yml logs --tail=50
+
                                 # Cleanup Docker services
-                                echo "Stopping Docker services..."
-                                docker-compose -f docker-compose.test.yml down -v
+                                echo "Stopping and removing all E2E services..."
+                                docker-compose -f docker-compose.e2e.yml down -v
 
                                 exit $EXIT_CODE
                             }
@@ -224,17 +235,17 @@ pipeline {
                             # Move test results to coverage directory for Jenkins
                             mkdir -p coverage
                             mv frontend/playwright-report/junit.xml coverage/e2e-junit.xml 2>/dev/null || true
-                            mv allure-results allure-results/e2e 2>/dev/null || true
+                            mv frontend/allure-results ../allure-results/e2e 2>/dev/null || true
 
                             # Cleanup Docker services
-                            echo "Stopping Docker services..."
-                            docker-compose -f docker-compose.test.yml down -v
+                            echo "Stopping and removing all E2E services..."
+                            docker-compose -f docker-compose.e2e.yml down -v
                         '''
 
                         echo "=== E2E Tests Complete ==="
                     } catch (Exception e) {
                         // Ensure cleanup happens even on failure
-                        sh 'docker-compose -f docker-compose.test.yml down -v 2>/dev/null || true'
+                        sh 'docker-compose -f docker-compose.e2e.yml down -v 2>/dev/null || true'
 
                         echo "⚠️  E2E tests failed"
                         echo "Error: ${e.message}"
