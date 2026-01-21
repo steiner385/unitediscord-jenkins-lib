@@ -2,7 +2,7 @@
 /**
  * uniteDiscord Multi-Branch Pipeline
  *
- * Full CI pipeline: Lint, Unit Tests, Integration Tests, Contract Tests, Build
+ * Full CI pipeline: Lint, Unit Tests, Integration Tests, Contract Tests, E2E Tests, Build
  *
  * Stages:
  *   - Initialize: Setup, checkout, and GitHub status reporting
@@ -12,6 +12,7 @@
  *   - Unit Tests: Run unit tests (backend + frontend) - 1,221 tests
  *   - Integration Tests: Run integration tests - 124 tests (always run)
  *   - Contract Tests: API contract validation tests (framework ready)
+ *   - E2E Tests: End-to-end browser tests with Playwright - 301 tests (main/develop only)
  *   - Build: Production build and artifact generation
  *
  * Multi-branch Jenkins provides these environment variables automatically:
@@ -166,6 +167,48 @@ pipeline {
         stage('Contract Tests') {
             steps {
                 sh 'npx pnpm run test:contract'
+            }
+        }
+
+        stage('E2E Tests') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                }
+            }
+            steps {
+                script {
+                    try {
+                        echo "=== Running E2E Tests ==="
+                        echo "Branch: ${env.BRANCH_NAME}"
+                        echo "Test Suite: Playwright (301 tests, 240 active)"
+
+                        sh '''
+                            # Install Playwright browsers (chromium only for CI)
+                            npx playwright install --with-deps chromium
+
+                            # Build frontend for preview mode
+                            cd frontend
+                            npm run build
+
+                            # Run Playwright tests in CI mode
+                            CI=true npx playwright test --reporter=list,junit,json
+
+                            # Move test results to coverage directory for Jenkins
+                            mkdir -p ../coverage
+                            mv playwright-report/junit.xml ../coverage/e2e-junit.xml 2>/dev/null || true
+                            mv allure-results ../allure-results/e2e 2>/dev/null || true
+                        '''
+
+                        echo "=== E2E Tests Complete ==="
+                    } catch (Exception e) {
+                        echo "⚠️  E2E tests failed"
+                        echo "Error: ${e.message}"
+                        // Mark as unstable but don't fail the build
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
             }
         }
 
