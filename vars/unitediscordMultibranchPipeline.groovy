@@ -201,7 +201,17 @@ def call() {
 
                             // Start all services
                             echo "Starting all services (infrastructure, 8 microservices, frontend)..."
-                            dockerCompose('up -d', 'docker-compose.e2e.yml')
+
+                            // Use docker compose V2 exclusively for 'up' to avoid V1 KeyError with stale metadata
+                            sh '''
+                                if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+                                    echo "Using docker compose V2"
+                                    docker compose -f docker-compose.e2e.yml up -d
+                                else
+                                    echo "Using docker-compose V1"
+                                    docker-compose -f docker-compose.e2e.yml up -d
+                                fi
+                            '''
 
                             // Wait for infrastructure services to be healthy
                             echo "Waiting for infrastructure services to be healthy..."
