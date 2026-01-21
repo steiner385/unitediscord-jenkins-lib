@@ -165,10 +165,10 @@ def call() {
 
             stage('E2E Tests') {
                 when {
-                    anyOf {
-                        branch 'main'
-                        branch 'develop'
-                        branch 'feat/e2e-docker-compose'
+                    expression {
+                        env.BRANCH_NAME == 'main' ||
+                        env.BRANCH_NAME == 'develop' ||
+                        env.BRANCH_NAME == 'feat/e2e-docker-compose'
                     }
                 }
                 steps {
