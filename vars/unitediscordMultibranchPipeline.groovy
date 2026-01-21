@@ -283,10 +283,50 @@ def call() {
                             '''
                             echo "E2E database ready"
 
+                            // Wait for frontend to be healthy
+                            echo "Waiting for frontend container to be healthy..."
+                            sh '''
+                                MAX_WAIT=60
+                                WAIT_COUNT=0
+                                until [ "$(docker inspect --format='{{.State.Health.Status}}' unite-frontend-e2e 2>/dev/null)" = "healthy" ]; do
+                                    if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
+                                        echo "ERROR: Frontend container did not become healthy after ${MAX_WAIT} seconds"
+                                        docker logs unite-frontend-e2e --tail 50
+                                        exit 1
+                                    fi
+                                    echo "Waiting for frontend health check... ($WAIT_COUNT/$MAX_WAIT)"
+                                    sleep 2
+                                    WAIT_COUNT=$((WAIT_COUNT + 1))
+                                done
+                                echo "Frontend container is healthy"
+                            '''
+
+                            // Verify port accessibility from host
+                            echo "Verifying frontend is accessible from host..."
+                            sh '''
+                                MAX_ATTEMPTS=30
+                                for i in $(seq 1 $MAX_ATTEMPTS); do
+                                    if curl -f -s http://localhost:9080 > /dev/null 2>&1; then
+                                        echo "Frontend is accessible at http://localhost:9080"
+                                        break
+                                    fi
+                                    if [ $i -eq $MAX_ATTEMPTS ]; then
+                                        echo "ERROR: Frontend not accessible from host after $MAX_ATTEMPTS attempts"
+                                        echo "Checking Docker port bindings:"
+                                        docker port unite-frontend-e2e
+                                        echo "Checking if port 9080 is listening:"
+                                        netstat -tlnp 2>/dev/null | grep 9080 || ss -tlnp | grep 9080 || echo "netstat/ss not available"
+                                        exit 1
+                                    fi
+                                    echo "Attempt $i/$MAX_ATTEMPTS: Waiting for frontend to be accessible..."
+                                    sleep 2
+                                done
+                            '''
+
                             // Run Playwright tests
                             sh '''
                                 cd frontend
-                                E2E_DOCKER=true E2E_FRONTEND_PORT=9080 npx playwright test --reporter=list,junit,json || {
+                                E2E_DOCKER=true E2E_FRONTEND_PORT=9080 SKIP_GLOBAL_SETUP_WAIT=true npx playwright test --reporter=list,junit,json || {
                                     EXIT_CODE=$?
                                     cd ..
                                     echo "Playwright tests exited with code $EXIT_CODE"
