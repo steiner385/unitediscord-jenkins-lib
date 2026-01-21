@@ -278,14 +278,8 @@ def call() {
                                     echo 'Postgres is ready'
                                 "
 
-                                # Copy db-models into discussion-service container and run migrations there
-                                docker cp packages/db-models unite-discussion-service-e2e:/app/
-
-                                docker compose -f docker-compose.e2e.yml exec -T discussion-service sh -c "
-                                    cd /app/db-models && \\
-                                    DATABASE_URL='postgresql://unite_test:unite_test@postgres:5432/unite_test' npx prisma migrate deploy && \\
-                                    DATABASE_URL='postgresql://unite_test:unite_test@postgres:5432/unite_test' node prisma/seed.js
-                                "
+                                # Run migrations and seed data using script (avoids pnpm symlink issues with docker cp)
+                                ./scripts/jenkins-e2e-db-setup.sh
                             '''
                             echo "E2E database ready"
 
