@@ -391,22 +391,29 @@ def call() {
                                 # Create coverage directory in container
                                 docker exec "$CONTAINER_NAME" mkdir -p /app/coverage 2>/dev/null || true
 
-                                # Run npm ci and Playwright tests
-                                # Using npm ci instead of npm install: faster, respects lockfile, less memory
-                                echo "Running npm ci and Playwright tests..."
-                                docker exec -e PLAYWRIGHT_BASE_URL=$PLAYWRIGHT_URL "$CONTAINER_NAME" bash -c "
+                                # Run npm install and Playwright tests
+                                # Note: Using npm install (not npm ci) because frontend uses pnpm lockfile
+                                # The tar copy includes node_modules from pnpm, but we may need to reinstall
+                                echo "Running npm install and Playwright tests..."
+                                docker exec "$CONTAINER_NAME" bash -c "
+                                    export PLAYWRIGHT_BASE_URL='http://frontend:80'
                                     echo 'DEBUG: Inside container - Starting E2E test execution'
                                     echo 'DEBUG: Working directory:' \$(pwd)
                                     echo 'DEBUG: PLAYWRIGHT_BASE_URL=' \$PLAYWRIGHT_BASE_URL
 
-                                    echo 'DEBUG: Installing npm dependencies with npm ci...'
-                                    npm ci --prefer-offline 2>&1 | tee /tmp/npm-install.log || {
-                                        echo 'ERROR: npm ci failed'
-                                        cat /tmp/npm-install.log
-                                        exit 1
-                                    }
+                                    # Check if node_modules exists and has playwright
+                                    if [ -d 'node_modules/@playwright/test' ]; then
+                                        echo 'DEBUG: node_modules exists with playwright, skipping npm install'
+                                    else
+                                        echo 'DEBUG: Installing npm dependencies...'
+                                        npm install 2>&1 | tee /tmp/npm-install.log || {
+                                            echo 'ERROR: npm install failed'
+                                            cat /tmp/npm-install.log
+                                            exit 1
+                                        }
+                                        echo 'DEBUG: npm install complete'
+                                    fi
 
-                                    echo 'DEBUG: npm ci complete'
                                     echo 'DEBUG: Starting Playwright tests...'
                                     echo '=========================================='
 
