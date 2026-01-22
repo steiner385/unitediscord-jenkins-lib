@@ -367,11 +367,11 @@ def call() {
                                 PLAYWRIGHT_URL="http://frontend:80"
 
                                 echo "Creating Playwright container: $CONTAINER_NAME"
-                                # Increase memory to 6g - npm install + Playwright tests need more than 4g
+                                # Increase memory to 8g - npm install peak memory + Playwright browsers need substantial RAM
                                 docker run -d \
                                     --name "$CONTAINER_NAME" \
                                     --network ${E2E_PROJECT_NAME}_unite-e2e \
-                                    --memory 6g \
+                                    --memory 8g \
                                     -w /app/frontend \
                                     -e CI=true \
                                     -e E2E_DOCKER=true \
