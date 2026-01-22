@@ -255,9 +255,59 @@ def call() {
                                 }
                             '''
 
-                            // Wait for backend services
-                            echo "Waiting for backend services to start..."
-                            sh 'sleep 15'
+                            // Wait for backend services to be ready
+                            echo "Waiting for backend services to be ready..."
+                            sh '''
+                                echo "Checking health of critical backend services..."
+
+                                # List of critical services to check with their ports
+                                declare -A SERVICE_PORTS=(
+                                    ["user-service"]="3001"
+                                    ["discussion-service"]="3007"
+                                    ["ai-service"]="3002"
+                                )
+
+                                for service in "${!SERVICE_PORTS[@]}"; do
+                                    port=${SERVICE_PORTS[$service]}
+                                    echo "Checking $service (port $port)..."
+                                    MAX_ATTEMPTS=60  # 60 attempts x 2 seconds = 2 minutes max
+
+                                    for i in $(seq 1 $MAX_ATTEMPTS); do
+                                        # Check if container is running
+                                        CONTAINER_STATE=$(docker inspect --format='{{.State.Status}}' unite-${service}-e2e 2>/dev/null || echo "not_found")
+
+                                        if [ "$CONTAINER_STATE" != "running" ]; then
+                                            echo "⚠️  $service container state: $CONTAINER_STATE (attempt $i/$MAX_ATTEMPTS)"
+                                            if [ $i -eq $MAX_ATTEMPTS ]; then
+                                                echo "ERROR: $service container is not running"
+                                                docker logs unite-${service}-e2e --tail 30 2>/dev/null || echo "No logs available"
+                                                exit 1
+                                            fi
+                                            sleep 2
+                                            continue
+                                        fi
+
+                                        # Check if service is listening on its port (from within Docker network)
+                                        if docker compose -f docker-compose.e2e.yml exec -T $service curl -f -s http://localhost:$port/health > /dev/null 2>&1 || \
+                                           docker compose -f docker-compose.e2e.yml exec -T $service nc -z localhost $port 2>/dev/null; then
+                                            echo "✅ $service is ready and listening on port $port (attempt $i/$MAX_ATTEMPTS)"
+                                            break
+                                        fi
+
+                                        if [ $i -eq $MAX_ATTEMPTS ]; then
+                                            echo "ERROR: $service did not become ready after $MAX_ATTEMPTS attempts"
+                                            echo "Container logs (last 30 lines):"
+                                            docker logs unite-${service}-e2e --tail 30
+                                            exit 1
+                                        fi
+
+                                        echo "⏳ Waiting for $service to listen on port $port (attempt $i/$MAX_ATTEMPTS)"
+                                        sleep 2
+                                    done
+                                done
+
+                                echo "✅ All critical backend services are ready"
+                            '''
 
                             // Check service health
                             echo "Service status:"
@@ -324,6 +374,13 @@ def call() {
                             // This allows tests to access frontend at http://frontend:80 instead of localhost:9080
                             echo "Running Playwright tests inside Docker network..."
                             sh '''
+                                echo "DEBUG: =========================================="
+                                echo "DEBUG: About to execute docker run command"
+                                echo "DEBUG: Network: unitediscord_unite-e2e"
+                                echo "DEBUG: PLAYWRIGHT_BASE_URL: http://frontend:80"
+                                echo "DEBUG: Playwright version: v1.57.0-noble"
+                                echo "DEBUG: =========================================="
+
                                 # Create a test runner container based on the frontend build
                                 docker run --rm \
                                     --network unitediscord_unite-e2e \
@@ -335,11 +392,32 @@ def call() {
                                     -e PLAYWRIGHT_BASE_URL=http://frontend:80 \
                                     -e SKIP_GLOBAL_SETUP_WAIT=true \
                                     mcr.microsoft.com/playwright:v1.57.0-noble \
-                                    bash -c "npm install && npx playwright test --reporter=list,junit,json" || {
+                                    bash -c "
+                                        echo 'DEBUG: Inside container - Starting E2E test execution'
+                                        echo 'DEBUG: Working directory:' \$(pwd)
+                                        echo 'DEBUG: PLAYWRIGHT_BASE_URL=' \$PLAYWRIGHT_BASE_URL
+                                        echo 'DEBUG: Installing npm dependencies...'
+
+                                        npm install 2>&1 | tee /tmp/npm-install.log || {
+                                            echo 'ERROR: npm install failed'
+                                            echo 'ERROR: npm install log:'
+                                            cat /tmp/npm-install.log
+                                            exit 1
+                                        }
+
+                                        echo 'DEBUG: npm install complete'
+                                        echo 'DEBUG: Starting Playwright tests...'
+                                        echo '=========================================='
+
+                                        npx playwright test --reporter=list,junit,json
+                                    " || {
                                         EXIT_CODE=$?
-                                        echo "Playwright tests exited with code $EXIT_CODE"
+                                        echo "ERROR: Docker container exited with code $EXIT_CODE"
+                                        echo "ERROR: Playwright test execution failed"
                                         exit $EXIT_CODE
                                     }
+
+                                echo "DEBUG: docker run command completed successfully"
                             '''
 
                             // Move test results
