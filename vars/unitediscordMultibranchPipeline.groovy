@@ -192,7 +192,7 @@ def call() {
 
                             // Remove volumes and networks for both test and e2e
                             dockerCompose.safe('down -v --remove-orphans', 'docker-compose.test.yml')
-                            dockerCompose.safe('down -v --remove-orphans', 'docker-compose.e2e.yml')
+                            dockerCompose.safe('down -v --remove-orphans', 'docker-compose.e2e.yml', 'unitediscord')
 
                             // Diagnostic: Check what's using E2E ports before cleanup
                             echo "Checking processes on E2E ports (5434, 6381, 4568)..."
@@ -240,10 +240,10 @@ def call() {
                             sh '''
                                 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
                                     echo "Using docker compose V2"
-                                    docker compose -f docker-compose.e2e.yml up -d
+                                    COMPOSE_PROJECT_NAME=unitediscord docker compose -f docker-compose.e2e.yml up -d
                                 else
                                     echo "Using docker-compose V1"
-                                    docker-compose -f docker-compose.e2e.yml up -d
+                                    COMPOSE_PROJECT_NAME=unitediscord docker-compose -f docker-compose.e2e.yml up -d
                                 fi
                             '''
 
@@ -326,7 +326,7 @@ def call() {
                             sh '''
                                 # Create a test runner container based on the frontend build
                                 docker run --rm \
-                                    --network unite-e2e \
+                                    --network unitediscord_unite-e2e \
                                     -v $(pwd)/frontend:/app/frontend \
                                     -v $(pwd)/coverage:/app/coverage \
                                     -w /app/frontend \
@@ -354,7 +354,7 @@ def call() {
                         } catch (Exception e) {
                             // Show service logs for debugging
                             echo "=== Service Logs (last 50 lines) ==="
-                            dockerCompose.safe('logs --tail=50', 'docker-compose.e2e.yml')
+                            dockerCompose.safe('logs --tail=50', 'docker-compose.e2e.yml', 'unitediscord')
 
                             echo "⚠️  E2E tests failed"
                             echo "Error: ${e.message}"
@@ -364,7 +364,7 @@ def call() {
                         } finally {
                             // Always cleanup Docker services
                             echo "Stopping and removing all E2E services..."
-                            dockerCompose.safe('down -v', 'docker-compose.e2e.yml')
+                            dockerCompose.safe('down -v', 'docker-compose.e2e.yml', 'unitediscord')
                         }
                     }
                 }
