@@ -410,12 +410,14 @@ def call() {
 
                                     # Remove local @playwright to use global installation from Docker image
                                     rm -rf node_modules/@playwright node_modules/playwright node_modules/playwright-core 2>/dev/null || true
-                                    echo 'DEBUG: Playwright version:' \$(npx playwright --version)
+                                    echo 'DEBUG: Playwright version:' \$(playwright --version)
 
                                     echo 'DEBUG: Starting Playwright tests...'
                                     echo '=========================================='
 
-                                    npx playwright test --reporter=list,junit,json
+                                    # Use 'playwright' directly instead of 'npx playwright'
+                                    # npx resolves to local path even after deletion, causing module not found errors
+                                    playwright test --reporter=list,junit,json
                                 " || {
                                     EXIT_CODE=$?
                                     echo "ERROR: Playwright tests exited with code $EXIT_CODE"
