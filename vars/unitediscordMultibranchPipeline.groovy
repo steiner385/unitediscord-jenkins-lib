@@ -359,13 +359,13 @@ def call() {
                             sh '''
                                 MAX_ATTEMPTS=30
                                 for i in $(seq 1 $MAX_ATTEMPTS); do
-                                    if docker compose -f docker-compose.e2e.yml exec -T frontend curl -f -s http://localhost:80 > /dev/null 2>&1; then
+                                    if COMPOSE_PROJECT_NAME=unitediscord docker compose -f docker-compose.e2e.yml exec -T frontend curl -f -s http://localhost:80 > /dev/null 2>&1; then
                                         echo "Frontend is accessible on Docker network"
                                         break
                                     fi
                                     if [ $i -eq $MAX_ATTEMPTS ]; then
                                         echo "ERROR: Frontend not accessible after $MAX_ATTEMPTS attempts"
-                                        docker logs unite-frontend-e2e --tail 50
+                                        COMPOSE_PROJECT_NAME=unitediscord docker compose -f docker-compose.e2e.yml logs frontend --tail 50
                                         exit 1
                                     fi
                                     echo "Attempt $i/$MAX_ATTEMPTS: Waiting for frontend to be accessible..."
