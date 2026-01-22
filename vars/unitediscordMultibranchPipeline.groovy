@@ -323,7 +323,7 @@ def call() {
                                 # Run migrations from inside a container on the Docker network
                                 # This avoids host-to-container networking issues
                                 echo "Running Prisma migrations on E2E database..."
-                                docker compose -f docker-compose.e2e.yml exec -T postgres sh -c "
+                                COMPOSE_PROJECT_NAME=unitediscord docker compose -f docker-compose.e2e.yml exec -T postgres sh -c "
                                     until pg_isready -U unite_test -d unite_test; do
                                         echo 'Waiting for postgres...';
                                         sleep 1;
