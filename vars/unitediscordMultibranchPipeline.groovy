@@ -260,15 +260,13 @@ def call() {
                             sh '''
                                 echo "Checking health of critical backend services..."
 
-                                # List of critical services to check with their ports
-                                declare -A SERVICE_PORTS=(
-                                    ["user-service"]="3001"
-                                    ["discussion-service"]="3007"
-                                    ["ai-service"]="3002"
-                                )
+                                # POSIX-compliant service checking (no bash associative arrays)
+                                # Format: "service:port service:port ..."
+                                SERVICES="user-service:3001 discussion-service:3007 ai-service:3002"
 
-                                for service in "${!SERVICE_PORTS[@]}"; do
-                                    port=${SERVICE_PORTS[$service]}
+                                for service_port in $SERVICES; do
+                                    service=$(echo $service_port | cut -d: -f1)
+                                    port=$(echo $service_port | cut -d: -f2)
                                     echo "Checking $service (port $port)..."
                                     MAX_ATTEMPTS=60  # 60 attempts x 2 seconds = 2 minutes max
 
