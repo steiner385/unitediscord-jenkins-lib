@@ -184,15 +184,15 @@ def call() {
 
                             // Force remove all E2E containers (handles stale containers)
                             sh '''
-                                # Remove E2E containers
-                                docker ps -a -q -f "name=unite-.*-e2e" | xargs -r docker rm -f 2>/dev/null || true
-                                docker ps -a -q -f "name=.*_feat_e2e-docker-compose.*" | xargs -r docker rm -f 2>/dev/null || true
+                                # Remove E2E containers (use grep since docker -f name= doesn't support regex)
+                                docker ps -a --format '{{.Names}}' | grep -E 'unite-.*-e2e' | xargs -r docker rm -f 2>/dev/null || true
+                                docker ps -a --format '{{.Names}}' | grep -E '_feat_e2e-docker-compose' | xargs -r docker rm -f 2>/dev/null || true
 
                                 # Remove integration test containers (they use same ports: 5433, 6380, 4567)
-                                docker ps -a -q -f "name=unite-.*-test" | xargs -r docker rm -f 2>/dev/null || true
-                                docker ps -a -q -f "name=.*postgres.*test" | xargs -r docker rm -f 2>/dev/null || true
-                                docker ps -a -q -f "name=.*redis.*test" | xargs -r docker rm -f 2>/dev/null || true
-                                docker ps -a -q -f "name=.*localstack.*test" | xargs -r docker rm -f 2>/dev/null || true
+                                docker ps -a --format '{{.Names}}' | grep -E 'unite-.*-test' | xargs -r docker rm -f 2>/dev/null || true
+                                docker ps -a --format '{{.Names}}' | grep -E 'postgres.*test' | xargs -r docker rm -f 2>/dev/null || true
+                                docker ps -a --format '{{.Names}}' | grep -E 'redis.*test' | xargs -r docker rm -f 2>/dev/null || true
+                                docker ps -a --format '{{.Names}}' | grep -E 'localstack.*test' | xargs -r docker rm -f 2>/dev/null || true
                             '''
 
                             // Remove volumes and networks for both test and e2e
