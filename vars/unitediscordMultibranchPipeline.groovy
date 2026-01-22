@@ -45,6 +45,10 @@ def call() {
             // This prevents container name conflicts across concurrent builds
             // Image caching still works because docker-compose.e2e.yml uses explicit image: tags
             E2E_PROJECT_NAME = "e2e-build-${env.BUILD_NUMBER ?: 'local'}"
+
+            // Unique project name per build for Integration Test Docker Compose isolation
+            // Eliminates "Paused for XXX" locking - builds can run truly in parallel
+            INT_TEST_PROJECT_NAME = "int-test-build-${env.BUILD_NUMBER ?: 'local'}"
         }
 
         options {
@@ -146,9 +150,10 @@ def call() {
                             echo "Branch: ${env.BRANCH_NAME ?: 'N/A'}"
                             echo "Tests: 124 integration tests (6 files)"
                             echo "Framework: vitest.integration.config.ts"
+                            echo "Project: ${env.INT_TEST_PROJECT_NAME} (build-specific isolation)"
                             runIntegrationTests(
                                 testCommand: 'npx vitest run --config vitest.integration.config.ts',
-                                skipLock: false,
+                                projectName: env.INT_TEST_PROJECT_NAME,
                                 statusContext: 'jenkins/integration',
                                 composeFile: 'docker-compose.test.yml'
                             )

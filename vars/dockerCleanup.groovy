@@ -119,13 +119,13 @@ def aggressiveE2ECleanup() {
         echo "=== Removing E2E containers ==="
         docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^e2e-build-|^unite-.*-e2e|^playwright-e2e-' | xargs -r docker rm -f 2>/dev/null || true
 
-        # Remove integration test containers
+        # Remove integration test containers (both old shared and new build-specific)
         echo "=== Removing integration test containers ==="
-        docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^unite-.*-test|postgres.*test|redis.*test|localstack.*test' | xargs -r docker rm -f 2>/dev/null || true
+        docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^int-test-build-|^unite-.*-test|postgres.*test|redis.*test|localstack.*test' | xargs -r docker rm -f 2>/dev/null || true
 
-        # Remove E2E and test networks
+        # Remove E2E and test networks (both old shared and new build-specific)
         echo "=== Removing test networks ==="
-        docker network ls --format '{{.Name}}' 2>/dev/null | grep -E '^e2e-build-|_unite-e2e$|_unite-test$' | xargs -r docker network rm 2>/dev/null || true
+        docker network ls --format '{{.Name}}' 2>/dev/null | grep -E '^e2e-build-|^int-test-build-|_unite-e2e$|_unite-test$' | xargs -r docker network rm 2>/dev/null || true
 
         # Prune unused networks (safe - only removes unused)
         docker network prune -f 2>/dev/null || true
