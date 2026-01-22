@@ -393,7 +393,7 @@ def call() {
 
                                 # Run npm install and Playwright tests
                                 # Note: Using npm install (not npm ci) because frontend uses pnpm lockfile
-                                # The tar copy includes node_modules from pnpm, but we may need to reinstall
+                                # pnpm node_modules use symlinks that don't work when tar copied, so always npm install
                                 echo "Running npm install and Playwright tests..."
                                 docker exec "$CONTAINER_NAME" bash -c "
                                     export PLAYWRIGHT_BASE_URL='http://frontend:80'
@@ -401,18 +401,14 @@ def call() {
                                     echo 'DEBUG: Working directory:' \$(pwd)
                                     echo 'DEBUG: PLAYWRIGHT_BASE_URL=' \$PLAYWRIGHT_BASE_URL
 
-                                    # Check if node_modules exists and has playwright
-                                    if [ -d 'node_modules/@playwright/test' ]; then
-                                        echo 'DEBUG: node_modules exists with playwright, skipping npm install'
-                                    else
-                                        echo 'DEBUG: Installing npm dependencies...'
-                                        npm install 2>&1 | tee /tmp/npm-install.log || {
-                                            echo 'ERROR: npm install failed'
-                                            cat /tmp/npm-install.log
-                                            exit 1
-                                        }
-                                        echo 'DEBUG: npm install complete'
-                                    fi
+                                    # Always run npm install - pnpm node_modules symlinks don't work when tar copied
+                                    echo 'DEBUG: Installing npm dependencies...'
+                                    npm install 2>&1 | tee /tmp/npm-install.log || {
+                                        echo 'ERROR: npm install failed'
+                                        cat /tmp/npm-install.log
+                                        exit 1
+                                    }
+                                    echo 'DEBUG: npm install complete'
 
                                     echo 'DEBUG: Starting Playwright tests...'
                                     echo '=========================================='
