@@ -391,24 +391,17 @@ def call() {
                                 # Create coverage directory in container
                                 docker exec "$CONTAINER_NAME" mkdir -p /app/coverage 2>/dev/null || true
 
-                                # Run npm install and Playwright tests
-                                # Note: Using npm install (not npm ci) because frontend uses pnpm lockfile
-                                # pnpm node_modules use symlinks that don't work when tar copied, so always npm install
-                                echo "Running npm install and Playwright tests..."
+                                # Run Playwright tests directly - no npm install needed!
+                                # The Playwright Docker image has @playwright/test pre-installed,
+                                # and all E2E tests only import from @playwright/test.
+                                # This saves ~40 seconds and significant memory vs npm install.
+                                echo "Running Playwright tests (skipping npm install - using pre-installed Playwright)..."
                                 docker exec "$CONTAINER_NAME" bash -c "
                                     export PLAYWRIGHT_BASE_URL='http://frontend:80'
                                     echo 'DEBUG: Inside container - Starting E2E test execution'
                                     echo 'DEBUG: Working directory:' \$(pwd)
                                     echo 'DEBUG: PLAYWRIGHT_BASE_URL=' \$PLAYWRIGHT_BASE_URL
-
-                                    # Always run npm install - pnpm node_modules symlinks don't work when tar copied
-                                    echo 'DEBUG: Installing npm dependencies...'
-                                    npm install 2>&1 | tee /tmp/npm-install.log || {
-                                        echo 'ERROR: npm install failed'
-                                        cat /tmp/npm-install.log
-                                        exit 1
-                                    }
-                                    echo 'DEBUG: npm install complete'
+                                    echo 'DEBUG: Playwright version:' \$(npx playwright --version)
 
                                     echo 'DEBUG: Starting Playwright tests...'
                                     echo '=========================================='
