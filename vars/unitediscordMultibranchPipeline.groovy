@@ -498,6 +498,22 @@ def call() {
                 // Publish JUnit test results
                 junit testResults: 'coverage/**/*.xml', allowEmptyResults: true, skipPublishingChecks: true
 
+                // Publish Playwright HTML report with screenshots
+                script {
+                    if (fileExists('frontend/playwright-report')) {
+                        publishHTML([
+                            allowMissing: false,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: 'frontend/playwright-report',
+                            reportFiles: 'index.html',
+                            reportName: 'Playwright E2E Report',
+                            reportTitles: 'E2E Test Results with Screenshots'
+                        ])
+                        echo "✅ Playwright HTML report published (includes screenshots)"
+                    }
+                }
+
                 // Publish Allure test reports
                 script {
                     def allureDirs = ['allure-results', 'frontend/allure-results', 'backend/allure-results']
