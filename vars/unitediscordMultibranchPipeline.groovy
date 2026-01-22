@@ -395,12 +395,17 @@ def call() {
                                 # The Playwright Docker image has @playwright/test pre-installed,
                                 # and all E2E tests only import from @playwright/test.
                                 # This saves ~40 seconds and significant memory vs npm install.
+                                # NOTE: We delete local node_modules/@playwright to use the global installation
+                                # since the tar-copied local version is incomplete (missing playwright peer dep).
                                 echo "Running Playwright tests (skipping npm install - using pre-installed Playwright)..."
                                 docker exec "$CONTAINER_NAME" bash -c "
                                     export PLAYWRIGHT_BASE_URL='http://frontend:80'
                                     echo 'DEBUG: Inside container - Starting E2E test execution'
                                     echo 'DEBUG: Working directory:' \$(pwd)
                                     echo 'DEBUG: PLAYWRIGHT_BASE_URL=' \$PLAYWRIGHT_BASE_URL
+
+                                    # Remove local @playwright to use global installation from Docker image
+                                    rm -rf node_modules/@playwright node_modules/playwright node_modules/playwright-core 2>/dev/null || true
                                     echo 'DEBUG: Playwright version:' \$(npx playwright --version)
 
                                     echo 'DEBUG: Starting Playwright tests...'
