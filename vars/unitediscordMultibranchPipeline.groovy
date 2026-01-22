@@ -285,9 +285,11 @@ def call() {
                                             continue
                                         fi
 
-                                        # Check if service is responding on its health endpoint
-                                        # Hit the service from the Jenkins host (not inside container - alpine doesn't have curl)
-                                        if curl -f -s http://localhost:$port/health > /dev/null 2>&1; then
+                                        # Check health from INSIDE the Docker network using a curl container
+                                        # This avoids the Jenkins agent network isolation issue - Jenkins agents
+                                        # run in Docker containers, so localhost doesn't reach E2E services
+                                        if docker run --rm --network unitediscord_unite-e2e curlimages/curl:latest \
+                                            curl -f -s "http://unite-${service}-e2e:$port/health" > /dev/null 2>&1; then
                                             echo "✅ $service is ready and healthy on port $port (attempt $i/$MAX_ATTEMPTS)"
                                             break
                                         fi
