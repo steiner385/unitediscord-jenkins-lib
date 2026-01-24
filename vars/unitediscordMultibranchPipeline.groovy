@@ -418,8 +418,9 @@ def call() {
                                 docker stats "$CONTAINER_NAME" --format "{{.Container}},{{.MemUsage}},{{.MemPerc}},{{.CPUPerc}}" > /tmp/memory-during-tests.log 2>&1 &
                                 STATS_PID=$!
 
-                                docker exec "$CONTAINER_NAME" bash -c "
-                                    export PLAYWRIGHT_BASE_URL='http://frontend:80'
+                                docker exec \
+                                    -e PLAYWRIGHT_BASE_URL='http://frontend:80' \
+                                    "$CONTAINER_NAME" bash -c "
                                     echo 'DEBUG: Inside container - Starting E2E test execution'
                                     echo 'DEBUG: Working directory:' \$(pwd)
                                     echo 'DEBUG: PLAYWRIGHT_BASE_URL=' \$PLAYWRIGHT_BASE_URL
