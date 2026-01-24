@@ -128,14 +128,21 @@ def call() {
 
             stage('Lint') {
                 steps {
-                    sh 'npx pnpm run lint'
+                    runLintChecks(
+                        skipCheckout: true,
+                        lintCommand: 'npx pnpm run lint',
+                        skipTypeCheck: true  // Type checking handled separately
+                    )
                 }
             }
 
             stage('Unit Tests') {
                 steps {
                     withAwsCredentials {
-                        sh 'npx pnpm run test:unit'
+                        runUnitTests(
+                            skipCheckout: true,
+                            testCommand: 'npx pnpm run test:unit'
+                        )
                     }
                 }
             }
