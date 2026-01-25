@@ -111,7 +111,7 @@ def e2eTestReports(Map config = [:]) {
     call([
         junit: config.junit ?: false,
         playwright: true,
-        allure: true
+        allure: false  // Disabled to remove Allure trend chart from job page (keep standard JUnit trend only)
     ])
 }
 
