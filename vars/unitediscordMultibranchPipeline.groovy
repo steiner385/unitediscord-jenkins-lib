@@ -218,6 +218,10 @@ def call() {
                             // Install Playwright browsers (dependencies already in agent image)
                             sh 'npx playwright install chromium'
 
+                            // Verify all E2E ports are free before starting containers
+                            // This prevents "port already allocated" errors from zombie containers
+                            dockerCleanup.verifyE2EPortsFree(3, 5)  // 3 retries, 5 second delay
+
                             // Build Docker images
                             echo "Building Docker images for E2E environment..."
                             dockerCompose('build --parallel', 'docker-compose.e2e.yml')
