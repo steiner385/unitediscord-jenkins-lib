@@ -304,7 +304,7 @@ jobs:
         }
       }
 
-  # uniteDiscord Multi-branch Pipeline
+  # ReasonBridge Multi-branch Pipeline
   - script: |
       multibranchPipelineJob('ReasonBridge-ci') {
         displayName('ReasonBridge Branches')
@@ -366,7 +366,7 @@ jobs:
         }
       }
 
-  # uniteDiscord Nightly Build
+  # ReasonBridge Nightly Build
   - script: |
       pipelineJob('ReasonBridge-nightly') {
         description('Nightly comprehensive build - full test suite, security audits')
