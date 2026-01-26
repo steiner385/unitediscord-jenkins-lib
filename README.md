@@ -1,6 +1,6 @@
-# unitediscord-jenkins-lib
+# reasonbridge-jenkins-lib
 
-Jenkins shared library for uniteDiscord CI pipelines.
+Jenkins shared library for reasonbridge CI pipelines.
 
 ## Purpose
 
@@ -11,7 +11,7 @@ This library is **intentionally decoupled** from the main application repository
 In your application's Jenkinsfile:
 
 ```groovy
-@Library('unitediscord-lib@main') _
+@Library('reasonbridge-lib@main') _
 
 standardPipeline()
 ```
@@ -19,12 +19,12 @@ standardPipeline()
 Or with custom configuration:
 
 ```groovy
-@Library('unitediscord-lib@main') _
+@Library('reasonbridge-lib@main') _
 
 standardPipeline(
     githubOwner: 'steiner385',
-    githubRepo: 'uniteDiscord',
-    webhookToken: 'uniteDiscord-ci',
+    githubRepo: 'reasonbridge',
+    webhookToken: 'reasonbridge-ci',
     statusContext: 'Jenkins CI',
     buildPackages: true,
     runLint: true,
@@ -69,11 +69,11 @@ Add this library to Jenkins global configuration:
 
 1. Manage Jenkins → System → Global Pipeline Libraries
 2. Add new library:
-   - Name: `unitediscord-lib`
+   - Name: `reasonbridge-lib`
    - Default version: `main`
    - Retrieval method: Modern SCM
    - Source: Git
-   - Project Repository: `https://github.com/steiner385/unitediscord-jenkins-lib.git`
+   - Project Repository: `https://github.com/steiner385/reasonbridge-jenkins-lib.git`
 
 ## Directory Structure
 

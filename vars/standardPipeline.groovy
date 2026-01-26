@@ -7,8 +7,8 @@
  * this provides a configuration and helper pattern instead.
  *
  * Usage in Jenkinsfile:
- *   @Library('unitediscord-lib@main') _
- *   def cfg = standardPipeline.config(githubRepo: 'uniteDiscord')
+ *   @Library('reasonbridge-lib@main') _
+ *   def cfg = standardPipeline.config(githubRepo: 'reasonbridge')
  *   // Then use cfg.* values in your pipeline
  */
 
@@ -18,8 +18,8 @@
 def config(Map userConfig = [:]) {
     return [
         githubOwner: userConfig.githubOwner ?: 'steiner385',
-        githubRepo: userConfig.githubRepo ?: 'uniteDiscord',
-        webhookToken: userConfig.webhookToken ?: "${userConfig.githubRepo ?: 'uniteDiscord'}-ci",
+        githubRepo: userConfig.githubRepo ?: 'reasonbridge',
+        webhookToken: userConfig.webhookToken ?: "${userConfig.githubRepo ?: 'reasonbridge'}-ci",
         statusContext: userConfig.statusContext ?: 'Jenkins CI',
         buildPackages: userConfig.buildPackages != false,
         runLint: userConfig.runLint != false,

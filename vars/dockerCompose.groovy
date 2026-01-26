@@ -13,7 +13,7 @@
  *   dockerCompose('up -d')
  *   dockerCompose('build --parallel', 'docker-compose.e2e.yml')
  *   dockerCompose('ps', 'docker-compose.test.yml')
- *   dockerCompose('down -v', 'docker-compose.e2e.yml', 'unitediscord')
+ *   dockerCompose('down -v', 'docker-compose.e2e.yml', 'reasonbridge')
  *
  * Background:
  *   Some Jenkins agents have docker-compose (V1) but not the docker command,

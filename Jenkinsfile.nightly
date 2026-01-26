@@ -1,6 +1,6 @@
 #!/usr/bin/env groovy
 /**
- * Nightly Build Pipeline for uniteDiscord
+ * Nightly Build Pipeline for reasonbridge
  * Comprehensive nightly testing including full test suite and security scans
  *
  * Schedule: Runs daily at 2:00 AM (triggered by Jenkins cron)
@@ -27,7 +27,7 @@ pipeline {
 
     environment {
         GITHUB_OWNER = 'steiner385'
-        GITHUB_REPO = 'uniteDiscord'
+        GITHUB_REPO = 'reasonbridge'
         CI = 'true'
         NODE_ENV = 'test'
         NIGHTLY_BUILD = 'true'
@@ -44,7 +44,7 @@ pipeline {
                     env.GIT_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                     env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
                 }
-                echo "Nightly build for uniteDiscord - commit: ${env.GIT_COMMIT_SHORT}"
+                echo "Nightly build for reasonbridge - commit: ${env.GIT_COMMIT_SHORT}"
             }
         }
 
@@ -174,7 +174,7 @@ pipeline {
             steps {
                 script {
                     def summary = """
-## uniteDiscord Nightly Build Summary
+## reasonbridge Nightly Build Summary
 
 **Build**: #${env.BUILD_NUMBER}
 **Date**: ${new Date().format('yyyy-MM-dd HH:mm:ss')}
@@ -212,10 +212,10 @@ pipeline {
             }
         }
         success {
-            echo 'uniteDiscord nightly build succeeded!'
+            echo 'reasonbridge nightly build succeeded!'
         }
         failure {
-            echo 'uniteDiscord nightly build failed - check GitHub issues for specific failures'
+            echo 'reasonbridge nightly build failed - check GitHub issues for specific failures'
         }
     }
 }

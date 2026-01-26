@@ -1,9 +1,9 @@
 #!/usr/bin/env groovy
 /**
- * uniteDiscord Multi-Branch Pipeline (Global Variable)
+ * reasonbridge Multi-Branch Pipeline (Global Variable)
  *
  * This is the actual pipeline definition, called from the minimal stub Jenkinsfile
- * in the main uniteDiscord repo.
+ * in the main reasonbridge repo.
  *
  * Full CI pipeline: Lint, Unit Tests, Integration Tests, Contract Tests, E2E Tests, Build
  *
@@ -34,7 +34,7 @@ def call() {
 
         environment {
             GITHUB_OWNER = 'steiner385'
-            GITHUB_REPO = 'uniteDiscord'
+            GITHUB_REPO = 'reasonbridge'
             CI = 'true'
             NODE_ENV = 'test'
             NODE_OPTIONS = '--max-old-space-size=4096'
@@ -81,7 +81,7 @@ def call() {
                         )
                     }
 
-                    // Checkout the uniteDiscord application repo (multi-branch SCM)
+                    // Checkout the reasonbridge application repo (multi-branch SCM)
                     checkout scm
 
                     // Remove stale test directories and coverage files from previous builds
@@ -119,7 +119,7 @@ def call() {
 
                         # Verify packages are linked correctly
                         echo "=== Verifying workspace package links ==="
-                        ls -la node_modules/@unite-discord/ || echo "WARNING: @unite-discord packages not linked"
+                        ls -la node_modules/@reason-bridge/ || echo "WARNING: @reason-bridge packages not linked"
                         ls -la node_modules/@prisma/client/ || echo "WARNING: @prisma/client not found"
                         ls -la node_modules/.pnpm/ | head -20 || echo "WARNING: .pnpm store missing"
                     '''
