@@ -27,9 +27,36 @@ def call(Map config = [:]) {
         error "Invalid status '${status}'. Must be one of: ${validStatuses.join(', ')}"
     }
 
-    // Get repository info from environment
+    // Get repository info from environment or git remote
     def owner = env.GITHUB_OWNER ?: 'steiner385'
-    def repo = env.GITHUB_REPO ?: env.JOB_NAME?.split('/')[0]
+    def repo = env.GITHUB_REPO
+
+    // If GITHUB_REPO not set, try to extract from git remote URL
+    if (!repo) {
+        try {
+            def gitUrl = sh(script: 'git config --get remote.origin.url 2>/dev/null || echo ""', returnStdout: true).trim()
+            if (gitUrl) {
+                // Handle both HTTPS and SSH URLs:
+                // https://github.com/owner/repo.git -> repo
+                // git@github.com:owner/repo.git -> repo
+                def matcher = gitUrl =~ /(?:github\.com[\/:])[^\/]+\/([^\/\.]+)/
+                if (matcher.find()) {
+                    repo = matcher.group(1)
+                    echo "Extracted repo name '${repo}' from git remote URL"
+                }
+            }
+        } catch (Exception e) {
+            echo "WARNING: Could not extract repo from git URL: ${e.message}"
+        }
+    }
+
+    // Fallback to job name (strip -ci, -multibranch suffixes)
+    if (!repo) {
+        def jobName = env.JOB_NAME?.split('/')[0] ?: 'reasonBridge'
+        repo = jobName.replaceAll(/-(ci|multibranch)$/, '')
+        echo "Using fallback repo name '${repo}' derived from job name"
+    }
+
     def sha = env.GIT_COMMIT
 
     if (!sha) {
