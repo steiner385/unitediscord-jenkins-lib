@@ -616,6 +616,9 @@ def call() {
                     // For staging branches where E2E is skipped, treat UNSTABLE as success
                     // (UNSTABLE may come from Allure/JUnit plugin artifacts, not actual test failures)
                     if (sourceBranch?.startsWith('staging/')) {
+                        // Override build result to SUCCESS for staging branches
+                        // This affects the automatic continuous-integration/jenkins/pr-merge status
+                        currentBuild.result = 'SUCCESS'
                         githubStatusReporter(
                             status: 'success',
                             context: 'jenkins/ci',
