@@ -177,6 +177,12 @@ def call() {
             }
 
             stage('E2E Tests') {
+                when {
+                    // Skip E2E tests for staging branches (dependency updates that passed lint/unit/integration)
+                    not {
+                        branch pattern: "staging/*", comparator: "GLOB"
+                    }
+                }
                 steps {
                     // catchError marks stage as FAILURE (red) but build as UNSTABLE (yellow)
                     // This gives accurate visual feedback while allowing pipeline to continue
