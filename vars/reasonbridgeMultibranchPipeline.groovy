@@ -179,8 +179,10 @@ def call() {
             stage('E2E Tests') {
                 when {
                     // Skip E2E tests for staging branches (dependency updates that passed lint/unit/integration)
-                    not {
-                        branch pattern: "staging/*", comparator: "GLOB"
+                    // For PRs, CHANGE_BRANCH contains the source branch name; for direct pushes, use BRANCH_NAME
+                    expression {
+                        def sourceBranch = env.CHANGE_BRANCH ?: env.BRANCH_NAME
+                        return !(sourceBranch?.startsWith('staging/'))
                     }
                 }
                 steps {
@@ -598,6 +600,16 @@ def call() {
                         status: 'failure',
                         context: 'jenkins/ci',
                         description: "Build failed for ${buildType}"
+                    )
+                }
+            }
+            unstable {
+                script {
+                    def buildType = env.CHANGE_ID ? "PR #${env.CHANGE_ID}" : env.BRANCH_NAME
+                    githubStatusReporter(
+                        status: 'failure',
+                        context: 'jenkins/ci',
+                        description: "Build unstable for ${buildType}"
                     )
                 }
             }
