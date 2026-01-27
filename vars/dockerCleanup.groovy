@@ -113,6 +113,8 @@ def cleanContainersByPattern(String pattern, boolean silent = false) {
  *
  * Enhanced to find containers by port binding (not just name patterns) to catch
  * zombie containers from crashed builds that might still hold ports.
+ *
+ * Also handles docker-proxy processes that can hold ports even after containers are removed.
  */
 def aggressiveE2ECleanup() {
     echo "Performing aggressive E2E cleanup..."
@@ -141,7 +143,19 @@ def aggressiveE2ECleanup() {
         echo "=== Removing integration test containers ==="
         docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^int-test-build-|^unite-.*-test|postgres.*test|redis.*test|localstack.*test' | xargs -r docker rm -f 2>/dev/null || true
 
-        # Step 3: Kill host processes on E2E ports
+        # Step 3: Kill docker-proxy processes holding E2E ports
+        # docker-proxy can hold ports even after containers are removed
+        echo "=== Killing docker-proxy processes on E2E ports ==="
+        for port in $E2E_PORTS; do
+            # Find docker-proxy processes for this port
+            DOCKER_PROXY_PIDS=$(ps aux 2>/dev/null | grep "docker-proxy.*:$port" | grep -v grep | awk '{print $2}' || true)
+            if [ -n "$DOCKER_PROXY_PIDS" ]; then
+                echo "Found docker-proxy on port $port with PIDs: $DOCKER_PROXY_PIDS"
+                echo "$DOCKER_PROXY_PIDS" | xargs -r kill -9 2>/dev/null || true
+            fi
+        done
+
+        # Step 4: Kill host processes on E2E ports
         # This catches orphaned processes from crashed containers or dev servers
         echo "=== Killing host processes on E2E ports ==="
         for port in $E2E_PORTS; do
@@ -153,36 +167,53 @@ def aggressiveE2ECleanup() {
             fi
         done
 
-        # Step 4: Remove networks (after containers are removed)
+        # Step 5: Remove networks (after containers are removed)
         echo "=== Removing test networks ==="
         docker network ls --format '{{.Name}}' 2>/dev/null | grep -E '^e2e-build-|^int-test-build-|_unite-e2e$|_unite-test$' | xargs -r docker network rm 2>/dev/null || true
 
         # Prune unused networks (safe - only removes unused)
         docker network prune -f 2>/dev/null || true
 
-        # Step 5: Wait for Docker to release resources
+        # Step 6: Wait for Docker to release resources
         echo "=== Waiting for Docker to release resources ==="
-        sleep 3
+        sleep 5
 
-        # Step 6: Verify ports are actually free
+        # Step 7: Verify ports are actually free with multiple retries
         echo "=== Verifying E2E ports are free ==="
-        PORTS_IN_USE=""
-        for port in $E2E_PORTS; do
-            if lsof -ti :$port >/dev/null 2>&1 || ss -tln 2>/dev/null | grep -q ":$port "; then
-                PORTS_IN_USE="$PORTS_IN_USE $port"
+        for attempt in 1 2 3; do
+            PORTS_IN_USE=""
+            for port in $E2E_PORTS; do
+                if lsof -ti :$port >/dev/null 2>&1 || ss -tln 2>/dev/null | grep -q ":$port "; then
+                    PORTS_IN_USE="$PORTS_IN_USE $port"
+                fi
+            done
+
+            if [ -z "$PORTS_IN_USE" ]; then
+                echo "All E2E ports are free"
+                break
+            fi
+
+            echo "Attempt $attempt/3: Ports still in use:$PORTS_IN_USE"
+
+            if [ $attempt -lt 3 ]; then
+                echo "Attempting additional cleanup..."
+                for port in $PORTS_IN_USE; do
+                    # Force kill any remaining processes (including docker-proxy)
+                    lsof -ti :$port 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+                    fuser -k $port/tcp 2>/dev/null || true
+                    # Also check for docker-proxy again
+                    ps aux 2>/dev/null | grep "docker-proxy.*:$port" | grep -v grep | awk '{print $2}' | xargs -r kill -9 2>/dev/null || true
+                done
+                sleep 3
+            else
+                echo "WARNING: Some ports still in use after 3 cleanup attempts:$PORTS_IN_USE"
+                echo "Listing processes on those ports:"
+                for port in $PORTS_IN_USE; do
+                    echo "Port $port:"
+                    lsof -i :$port 2>/dev/null || true
+                done
             fi
         done
-
-        if [ -n "$PORTS_IN_USE" ]; then
-            echo "WARNING: Ports still in use after cleanup:$PORTS_IN_USE"
-            echo "Attempting additional cleanup..."
-            for port in $PORTS_IN_USE; do
-                # Force kill any remaining processes
-                lsof -ti :$port 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-                fuser -k $port/tcp 2>/dev/null || true
-            done
-            sleep 2
-        fi
 
         echo "=== Aggressive cleanup complete ==="
     '''
