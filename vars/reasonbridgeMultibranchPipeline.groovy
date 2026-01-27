@@ -549,9 +549,15 @@ def call() {
                 // Publish JUnit test results
                 junit testResults: 'coverage/**/*.xml', allowEmptyResults: true, skipPublishingChecks: true
 
-                // Archive Playwright artifacts (enables "Build Artifacts" sidebar link)
-                archiveArtifacts artifacts: 'frontend/playwright-report/**', allowEmptyArchive: true
-                archiveArtifacts artifacts: 'frontend/test-results/**', allowEmptyArchive: true
+                // Archive Playwright artifacts only if E2E tests ran (prevents UNSTABLE from missing artifacts)
+                script {
+                    if (fileExists('frontend/playwright-report')) {
+                        archiveArtifacts artifacts: 'frontend/playwright-report/**', allowEmptyArchive: true
+                    }
+                    if (fileExists('frontend/test-results')) {
+                        archiveArtifacts artifacts: 'frontend/test-results/**', allowEmptyArchive: true
+                    }
+                }
 
                 // Publish Playwright HTML report with screenshots
                 script {
