@@ -189,6 +189,11 @@ def call() {
                         return !(sourceBranch?.startsWith('staging/'))
                     }
                 }
+                options {
+                    // Acquire shared lock - Pre-Build pulls/builds Docker images which is memory-intensive
+                    // This lock is shared across all multibranch pipelines to prevent OOM
+                    lock(resource: 'docker-test-environment')
+                }
                 steps {
                     script {
                         echo "=== Pre-Building E2E Environment ==="
