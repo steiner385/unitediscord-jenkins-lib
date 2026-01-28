@@ -131,7 +131,7 @@ def call() {
                     runLintChecks(
                         skipCheckout: true,
                         lintCommand: 'npx pnpm run lint',
-                        skipTypeCheck: true  // Type checking handled separately
+                        typeCheckCommand: 'npx pnpm typecheck'
                     )
                 }
             }
