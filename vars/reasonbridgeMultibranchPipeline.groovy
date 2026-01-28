@@ -460,11 +460,37 @@ def call() {
                                 #   - playwright.config.ts (config)
                                 #   - global-setup.ts (global setup)
                                 #   - package.json (for npm install)
-                                echo "Copying essential Playwright files to container (e2e/, config files)..."
-                                tar -chf - -C frontend e2e playwright.config.ts global-setup.ts package.json | docker exec -i "$CONTAINER_NAME" tar -xf - -C /app/frontend/
+                                #   - tsconfig.json, tsconfig.node.json (TypeScript config for config files)
+                                echo "Copying essential Playwright files to container (e2e/, config files, tsconfig)..."
+                                tar -chf - -C frontend e2e playwright.config.ts global-setup.ts package.json tsconfig.json tsconfig.node.json | docker exec -i "$CONTAINER_NAME" tar -xf - -C /app/frontend/
+
+                                # Also copy tsconfig.base.json from root (frontend/tsconfig.json extends ../tsconfig.base.json)
+                                echo "Copying tsconfig.base.json from root..."
+                                tar -chf - tsconfig.base.json | docker exec -i "$CONTAINER_NAME" tar -xf - -C /app/
 
                                 echo "DEBUG: Files copied. Listing /app/frontend/:"
                                 docker exec "$CONTAINER_NAME" ls -la /app/frontend/
+
+                                echo "DEBUG: Listing /app/ (should contain tsconfig.base.json):"
+                                docker exec "$CONTAINER_NAME" ls -la /app/
+
+                                # Debug network connectivity before running tests
+                                echo "=== DEBUG: Checking network connectivity ==="
+                                docker exec "$CONTAINER_NAME" bash -c "
+                                    echo 'DEBUG: Resolving frontend hostname:'
+                                    getent hosts frontend || echo 'WARN: getent failed, trying alternative'
+                                    cat /etc/hosts | grep -i frontend || echo 'DEBUG: frontend not in /etc/hosts'
+
+                                    echo 'DEBUG: Testing HTTP connection to frontend:'
+                                    curl -v --connect-timeout 5 http://frontend:80 2>&1 | head -20 || echo 'ERROR: curl to frontend failed'
+
+                                    echo 'DEBUG: Environment variables:'
+                                    env | grep -E 'PLAYWRIGHT|E2E|CI' | sort
+
+                                    echo 'DEBUG: Network interfaces:'
+                                    ip addr show 2>/dev/null || ifconfig 2>/dev/null || echo 'WARN: Cannot show network interfaces'
+                                "
+                                echo "=== END network connectivity debug ==="
 
                                 # Create coverage directory in container
                                 docker exec "$CONTAINER_NAME" mkdir -p /app/coverage 2>/dev/null || true
