@@ -181,67 +181,61 @@ def call() {
                 }
             }
 
-            stage('Pre-Build E2E') {
+            // Parent stage wraps Pre-Build E2E and E2E Tests with a single lock
+            // This prevents other pipelines from running their E2E stages while this one is active
+            stage('E2E Environment') {
                 when {
-                    // Same condition as E2E Tests - only pre-build if E2E will run
+                    // Skip E2E for staging branches (dependency updates that passed lint/unit/integration)
                     expression {
                         def sourceBranch = env.CHANGE_BRANCH ?: env.BRANCH_NAME
                         return !(sourceBranch?.startsWith('staging/'))
                     }
                 }
                 options {
-                    // Acquire shared lock - Pre-Build pulls/builds Docker images which is memory-intensive
+                    // Single lock for entire E2E lifecycle - prevents race between Pre-Build and E2E Tests
                     // This lock is shared across all multibranch pipelines to prevent OOM
                     lock(resource: 'docker-test-environment')
                 }
-                steps {
-                    script {
-                        echo "=== Pre-Building E2E Environment ==="
-                        echo "This stage pre-pulls and pre-builds all Docker images BEFORE E2E tests"
-                        echo "to prevent memory spikes during test execution."
+                stages {
+                    stage('Pre-Build E2E') {
+                        steps {
+                            script {
+                                echo "=== Pre-Building E2E Environment ==="
+                                echo "This stage pre-pulls and pre-builds all Docker images BEFORE E2E tests"
+                                echo "to prevent memory spikes during test execution."
 
-                        // Pre-pull external Docker images (these are large and can cause memory spikes if pulled during E2E)
-                        echo "Pre-pulling external Docker images..."
-                        sh '''
-                            echo "Pulling Playwright Docker image (~1.5GB)..."
-                            docker pull mcr.microsoft.com/playwright:v1.57.0-noble
+                                // Pre-pull external Docker images (these are large and can cause memory spikes if pulled during E2E)
+                                echo "Pre-pulling external Docker images..."
+                                sh '''
+                                    echo "Pulling Playwright Docker image (~1.5GB)..."
+                                    docker pull mcr.microsoft.com/playwright:v1.57.0-noble
 
-                            echo "Pulling curl image for health checks..."
-                            docker pull curlimages/curl:latest
+                                    echo "Pulling curl image for health checks..."
+                                    docker pull curlimages/curl:latest
 
-                            echo "Pulling base images for E2E services..."
-                            docker pull postgres:15-alpine
-                            docker pull redis:7-alpine
-                            docker pull localstack/localstack:3.0
+                                    echo "Pulling base images for E2E services..."
+                                    docker pull postgres:15-alpine
+                                    docker pull redis:7-alpine
+                                    docker pull localstack/localstack:3.0
 
-                            echo "All external images pre-pulled successfully"
-                        '''
+                                    echo "All external images pre-pulled successfully"
+                                '''
 
-                        // Pre-build all E2E service images (this prevents memory spike during E2E startup)
-                        echo "Pre-building E2E service images (11 images)..."
-                        dockerCompose('build --parallel', 'docker-compose.e2e.yml')
-                        echo "All E2E images pre-built successfully"
+                                // Pre-build all E2E service images (this prevents memory spike during E2E startup)
+                                echo "Pre-building E2E service images (11 images)..."
+                                dockerCompose('build --parallel', 'docker-compose.e2e.yml')
+                                echo "All E2E images pre-built successfully"
 
-                        echo "=== Pre-Build E2E Complete ==="
+                                echo "=== Pre-Build E2E Complete ==="
+                            }
+                        }
                     }
-                }
-            }
 
-            stage('E2E Tests') {
-                when {
-                    // Skip E2E tests for staging branches (dependency updates that passed lint/unit/integration)
-                    // For PRs, CHANGE_BRANCH contains the source branch name; for direct pushes, use BRANCH_NAME
-                    expression {
-                        def sourceBranch = env.CHANGE_BRANCH ?: env.BRANCH_NAME
-                        return !(sourceBranch?.startsWith('staging/'))
-                    }
-                }
-                options {
-                    // Acquire shared lock to prevent concurrent resource-intensive tests
-                    // This lock is shared across all multibranch pipelines to prevent OOM
-                    lock(resource: 'docker-test-environment')
-                }
-                steps {
+                    // E2E Tests stage - nested inside E2E Environment (inherits parent lock)
+                    // NO 'when' clause - parent E2E Environment handles staging branch skip
+                    // NO 'options/lock' - parent E2E Environment holds the lock for entire lifecycle
+                    stage('E2E Tests') {
+                        steps {
                     // catchError marks stage as FAILURE (red) but build as UNSTABLE (yellow)
                     // This gives accurate visual feedback while allowing pipeline to continue
                     catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
@@ -596,6 +590,8 @@ def call() {
                                 dockerCleanup.cleanContainersByPattern("${env.E2E_PROJECT_NAME}-", true)
                             }
                         }
+                    }
+                }
                     }
                 }
             }
