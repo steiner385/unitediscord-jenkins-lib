@@ -176,6 +176,47 @@ def call() {
                 }
             }
 
+            stage('Pre-Build E2E') {
+                when {
+                    // Same condition as E2E Tests - only pre-build if E2E will run
+                    expression {
+                        def sourceBranch = env.CHANGE_BRANCH ?: env.BRANCH_NAME
+                        return !(sourceBranch?.startsWith('staging/'))
+                    }
+                }
+                steps {
+                    script {
+                        echo "=== Pre-Building E2E Environment ==="
+                        echo "This stage pre-pulls and pre-builds all Docker images BEFORE E2E tests"
+                        echo "to prevent memory spikes during test execution."
+
+                        // Pre-pull external Docker images (these are large and can cause memory spikes if pulled during E2E)
+                        echo "Pre-pulling external Docker images..."
+                        sh '''
+                            echo "Pulling Playwright Docker image (~1.5GB)..."
+                            docker pull mcr.microsoft.com/playwright:v1.57.0-noble
+
+                            echo "Pulling curl image for health checks..."
+                            docker pull curlimages/curl:latest
+
+                            echo "Pulling base images for E2E services..."
+                            docker pull postgres:15-alpine
+                            docker pull redis:7-alpine
+                            docker pull localstack/localstack:3.0
+
+                            echo "All external images pre-pulled successfully"
+                        '''
+
+                        // Pre-build all E2E service images (this prevents memory spike during E2E startup)
+                        echo "Pre-building E2E service images (11 images)..."
+                        dockerCompose('build --parallel', 'docker-compose.e2e.yml')
+                        echo "All E2E images pre-built successfully"
+
+                        echo "=== Pre-Build E2E Complete ==="
+                    }
+                }
+            }
+
             stage('E2E Tests') {
                 when {
                     // Skip E2E tests for staging branches (dependency updates that passed lint/unit/integration)
@@ -221,28 +262,29 @@ def call() {
                                 docker ps -a --format '{{.Names}}' | grep -E '(e2e-build-|unite-.*-(test|e2e)|postgres|redis|localstack)' || echo "No test/e2e containers found - cleanup successful"
                             '''
 
-                            // Install Playwright browsers (dependencies already in agent image)
-                            sh 'npx playwright install chromium'
+                            // NOTE: Playwright browsers are NOT installed here - they're pre-installed in the
+                            // mcr.microsoft.com/playwright Docker image. The old `npx playwright install chromium`
+                            // was downloading ~400MB for nothing and causing memory pressure.
 
                             // Verify all E2E ports are free before starting containers
                             // This prevents "port already allocated" errors from zombie containers
                             dockerCleanup.verifyE2EPortsFree(3, 5)  // 3 retries, 5 second delay
 
-                            // Build Docker images
-                            echo "Building Docker images for E2E environment..."
-                            dockerCompose('build --parallel', 'docker-compose.e2e.yml')
+                            // NOTE: Docker images are pre-built in the "Pre-Build E2E" stage to prevent
+                            // memory spikes during E2E test execution. No --build flag needed here.
 
-                            // Start all services
+                            // Start all services (using pre-built images from Pre-Build E2E stage)
                             echo "Starting all services (infrastructure, 8 microservices, frontend)..."
+                            echo "NOTE: Using pre-built images from Pre-Build E2E stage (no --build flag)"
 
                             // Use docker compose V2 exclusively for 'up' to avoid V1 KeyError with stale metadata
                             sh '''
                                 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
                                     echo "Using docker compose V2"
-                                    COMPOSE_PROJECT_NAME=$E2E_PROJECT_NAME docker compose -f docker-compose.e2e.yml up -d --build
+                                    COMPOSE_PROJECT_NAME=$E2E_PROJECT_NAME docker compose -f docker-compose.e2e.yml up -d
                                 else
                                     echo "Using docker-compose V1"
-                                    COMPOSE_PROJECT_NAME=$E2E_PROJECT_NAME docker-compose -f docker-compose.e2e.yml up -d --build
+                                    COMPOSE_PROJECT_NAME=$E2E_PROJECT_NAME docker-compose -f docker-compose.e2e.yml up -d
                                 fi
                             '''
 
