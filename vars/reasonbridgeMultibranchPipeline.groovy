@@ -443,10 +443,15 @@ def call() {
                                     mcr.microsoft.com/playwright:v1.57.0-noble \
                                     sleep infinity
 
-                                # Copy frontend files using tar to handle pnpm symlinks
-                                # -h/--dereference follows symlinks (copies the actual files)
-                                echo "Copying frontend files to container (using tar to handle symlinks)..."
-                                tar -chf - -C frontend . | docker exec -i "$CONTAINER_NAME" tar -xf - -C /app/frontend/
+                                # Copy ONLY essential Playwright test files to container
+                                # Previous approach copied entire frontend (~134MB with dereferenced symlinks)
+                                # which caused memory pressure. Now we copy only what's needed (~500KB):
+                                #   - e2e/ (test specs)
+                                #   - playwright.config.ts (config)
+                                #   - global-setup.ts (global setup)
+                                #   - package.json (for npm install)
+                                echo "Copying essential Playwright files to container (e2e/, config files)..."
+                                tar -chf - -C frontend e2e playwright.config.ts global-setup.ts package.json | docker exec -i "$CONTAINER_NAME" tar -xf - -C /app/frontend/
 
                                 echo "DEBUG: Files copied. Listing /app/frontend/:"
                                 docker exec "$CONTAINER_NAME" ls -la /app/frontend/
