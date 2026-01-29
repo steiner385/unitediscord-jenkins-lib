@@ -15,7 +15,7 @@
  *   - Unit Tests: Run unit tests (backend + frontend) - 1,221 tests
  *   - Integration Tests: Run integration tests - 124 tests (always run)
  *   - Contract Tests: API contract validation tests (framework ready)
- *   - E2E Tests: End-to-end browser tests with Playwright - 301 tests (main/develop only)
+ *   - E2E Tests: End-to-end browser tests with Playwright - 301 tests (all branches except staging/*)
  *   - Build: Production build and artifact generation
  *
  * Multi-branch Jenkins provides these environment variables automatically:
