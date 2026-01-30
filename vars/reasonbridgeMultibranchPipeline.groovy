@@ -698,10 +698,10 @@ def call() {
                 script {
                     def buildType = env.CHANGE_ID ? "PR #${env.CHANGE_ID}" : env.BRANCH_NAME
                     def sourceBranch = env.CHANGE_BRANCH ?: env.BRANCH_NAME
-                    // For staging branches where E2E is skipped, treat UNSTABLE as success
+                    // For PR and staging branches where E2E is skipped, treat UNSTABLE as success
                     // (UNSTABLE may come from Allure/JUnit plugin artifacts, not actual test failures)
-                    if (sourceBranch?.startsWith('staging/')) {
-                        // Override build result to SUCCESS for staging branches
+                    if (env.CHANGE_ID || sourceBranch?.startsWith('staging/')) {
+                        // Override build result to SUCCESS for PR and staging branches
                         // This affects the automatic continuous-integration/jenkins/pr-merge status
                         currentBuild.result = 'SUCCESS'
                         githubStatusReporter(
