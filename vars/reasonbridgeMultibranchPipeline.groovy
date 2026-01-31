@@ -105,8 +105,36 @@ def call() {
                         # Clean stale node_modules to force fresh install
                         rm -rf node_modules
 
-                        # Fresh install with pnpm
-                        npx --yes pnpm@latest install --frozen-lockfile
+                        # Also clear pnpm store cache to avoid corrupted symlinks
+                        # The ENOENT errors during pnpm install suggest stale symlink targets
+                        rm -rf ~/.local/share/pnpm/store 2>/dev/null || true
+
+                        # Fresh install with pnpm - with retry on failure
+                        # pnpm symlink creation can fail intermittently on busy systems
+                        echo "Installing dependencies with pnpm..."
+                        for attempt in 1 2 3; do
+                            if npx --yes pnpm@latest install --frozen-lockfile; then
+                                echo "pnpm install succeeded on attempt $attempt"
+                                break
+                            else
+                                echo "pnpm install failed on attempt $attempt"
+                                if [ $attempt -lt 3 ]; then
+                                    echo "Cleaning up and retrying..."
+                                    rm -rf node_modules
+                                    sleep 2
+                                else
+                                    echo "pnpm install failed after 3 attempts"
+                                    exit 1
+                                fi
+                            fi
+                        done
+
+                        # Verify critical packages are properly installed
+                        echo "Verifying installation..."
+                        if [ ! -d "node_modules/.pnpm" ]; then
+                            echo "ERROR: pnpm store not found in node_modules"
+                            exit 1
+                        fi
                     '''
                 }
             }

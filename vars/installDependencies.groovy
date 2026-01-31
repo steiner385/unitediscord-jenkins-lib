@@ -51,17 +51,31 @@ def call(Map config = [:]) {
     }
 
     // Install dependencies (smart caching)
+    // Detect package manager: pnpm (pnpm-lock.yaml) vs npm (package-lock.json)
     if (forceInstall) {
         sh """
             echo "Force installing dependencies..."
             rm -rf node_modules
-            npm ci ${peerDepsFlag}
-            cp package-lock.json node_modules/.package-lock.json
+            if [ -f "pnpm-lock.yaml" ]; then
+                echo "Using pnpm (detected pnpm-lock.yaml)..."
+                npx --yes pnpm@latest install --frozen-lockfile
+            else
+                npm ci ${peerDepsFlag}
+                cp package-lock.json node_modules/.package-lock.json
+            fi
         """
     } else {
         sh """
-            if [ ! -d "node_modules" ] || [ "package-lock.json" -nt "node_modules/.package-lock.json" ]; then
-                echo "Installing dependencies..."
+            if [ -f "pnpm-lock.yaml" ]; then
+                # pnpm workspace - check if node_modules exists and is linked properly
+                if [ ! -d "node_modules" ]; then
+                    echo "Installing dependencies with pnpm..."
+                    npx --yes pnpm@latest install --frozen-lockfile
+                else
+                    echo "node_modules exists, assuming dependencies up to date"
+                fi
+            elif [ ! -d "node_modules" ] || [ "package-lock.json" -nt "node_modules/.package-lock.json" ]; then
+                echo "Installing dependencies with npm..."
                 npm ci ${peerDepsFlag}
                 cp package-lock.json node_modules/.package-lock.json
             else
