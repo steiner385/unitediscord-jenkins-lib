@@ -520,16 +520,18 @@ def call() {
                                     echo 'DEBUG: PLAYWRIGHT_BASE_URL=' \$PLAYWRIGHT_BASE_URL
                                     echo 'DEBUG: CI=' \$CI
 
-                                    # NOTE: No npm install needed here!
-                                    # - @playwright/test is pre-installed in the official Playwright Docker image
-                                    # - allure-playwright is skipped in CI (see playwright.config.ts)
-                                    # - This prevents memory spikes from npm install that caused OOM (exit 137)
+                                    # Install @playwright/test (the test framework) - ~5MB, fast install
+                                    # The official Playwright Docker image has browsers pre-installed but
+                                    # not the @playwright/test package that our config file imports
+                                    # NOTE: allure-playwright is NOT installed (skipped in CI via playwright.config.ts)
+                                    echo 'DEBUG: Installing @playwright/test...'
+                                    npm install @playwright/test@1.58.0 --no-save --prefer-offline 2>&1 | tail -3 || npm install @playwright/test@1.58.0 --no-save
                                     echo 'DEBUG: Playwright version:' \$(npx playwright --version)
 
                                     echo 'DEBUG: Starting Playwright tests...'
                                     echo '=========================================='
 
-                                    # Use reporters configured in playwright.config.ts (includes allure-playwright)
+                                    # Use reporters configured in playwright.config.ts
                                     npx playwright test
                                 " || {
                                     EXIT_CODE=$?
