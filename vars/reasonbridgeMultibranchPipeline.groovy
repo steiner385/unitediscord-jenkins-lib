@@ -22,6 +22,13 @@
  *   BRANCH_NAME   - Current branch name
  *   CHANGE_ID     - PR number (null if not a PR build)
  *
+ * Branch Filtering:
+ *   - Only PRs and protected branches (main, develop, staging, deploy/*) are built
+ *   - Other branch pushes are skipped immediately without allocating an executor
+ *   - To prevent build entries entirely, configure Branch Source in Jenkins UI:
+ *     Configure > Branch Sources > GitHub > Behaviors > Filter by name (with regular expression)
+ *     Include: (main|develop|staging|deploy/.*)
+ *
  * Webhook Setup:
  *   URL: https://jenkins.kindash.com/github-webhook/
  *   Content type: application/json
@@ -29,6 +36,22 @@
  */
 
 def call() {
+    // Pre-flight branch check (runs without allocating an agent)
+    def isPR = env.CHANGE_ID != null
+    def isProtectedBranch = env.BRANCH_NAME in ['main', 'develop', 'staging'] || env.BRANCH_NAME?.startsWith('deploy/')
+
+    if (!isPR && !isProtectedBranch) {
+        echo "⏭️ Skipping build for branch: ${env.BRANCH_NAME}"
+        echo "This branch will be built when a PR is created."
+        echo ""
+        echo "To prevent these build entries entirely, configure Branch Source filtering in Jenkins:"
+        echo "  Configure > Branch Sources > Behaviors > Filter by name (with regular expression)"
+        echo "  Include: (main|develop|staging|deploy/.*)"
+        currentBuild.result = 'NOT_BUILT'
+        currentBuild.description = "Skipped: feature branch (no PR)"
+        return
+    }
+
     pipeline {
         agent any
 
