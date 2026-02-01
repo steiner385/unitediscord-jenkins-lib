@@ -306,7 +306,7 @@ jobs:
 
   # ReasonBridge Multi-branch Pipeline
   - script: |
-      multibranchPipelineJob('reasonBridge-multibranch') {
+      multibranchPipelineJob('ReasonBridge-ci') {
         displayName('ReasonBridge Branches')
         description('Multi-branch pipeline for all ReasonBridge branches and PRs')
         branchSources {
