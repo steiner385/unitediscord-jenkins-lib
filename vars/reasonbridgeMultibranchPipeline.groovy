@@ -79,6 +79,13 @@ def call() {
                             context: 'jenkins/ci',
                             description: "Build started for ${buildType}"
                         )
+                        // Override automatic GitHub Branch Source plugin status
+                        // This prevents stale/inconsistent continuous-integration/jenkins/branch status
+                        githubStatusReporter(
+                            status: 'pending',
+                            context: 'continuous-integration/jenkins/branch',
+                            description: "Build started for ${buildType}"
+                        )
                     }
 
                     // Checkout the reasonbridge application repo (multi-branch SCM)
@@ -712,6 +719,11 @@ def call() {
                         context: 'jenkins/ci',
                         description: "Build succeeded for ${buildType}"
                     )
+                    githubStatusReporter(
+                        status: 'success',
+                        context: 'continuous-integration/jenkins/branch',
+                        description: "Build succeeded for ${buildType}"
+                    )
                 }
             }
             failure {
@@ -720,6 +732,11 @@ def call() {
                     githubStatusReporter(
                         status: 'failure',
                         context: 'jenkins/ci',
+                        description: "Build failed for ${buildType}"
+                    )
+                    githubStatusReporter(
+                        status: 'failure',
+                        context: 'continuous-integration/jenkins/branch',
                         description: "Build failed for ${buildType}"
                     )
                 }
@@ -739,10 +756,20 @@ def call() {
                             context: 'jenkins/ci',
                             description: "Build succeeded for ${buildType} (E2E skipped)"
                         )
+                        githubStatusReporter(
+                            status: 'success',
+                            context: 'continuous-integration/jenkins/branch',
+                            description: "Build succeeded for ${buildType} (E2E skipped)"
+                        )
                     } else {
                         githubStatusReporter(
                             status: 'failure',
                             context: 'jenkins/ci',
+                            description: "Build unstable for ${buildType}"
+                        )
+                        githubStatusReporter(
+                            status: 'failure',
+                            context: 'continuous-integration/jenkins/branch',
                             description: "Build unstable for ${buildType}"
                         )
                     }
