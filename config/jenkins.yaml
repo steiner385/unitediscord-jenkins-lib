@@ -306,7 +306,7 @@ jobs:
 
   # ReasonBridge Multi-branch Pipeline
   - script: |
-      multibranchPipelineJob('ReasonBridge-ci') {
+      multibranchPipelineJob('reasonBridge-multibranch') {
         displayName('ReasonBridge Branches')
         description('Multi-branch pipeline for all ReasonBridge branches and PRs')
         branchSources {
@@ -320,6 +320,23 @@ jobs:
             buildOriginPRMerge(true)
             buildOriginPRHead(false)
             buildForkPRMerge(false)
+            // Disable automatic GitHub commit status notifications
+            // We use explicit githubStatusReporter() calls in the pipeline instead
+            traits {
+              gitHubBranchDiscovery {
+                strategyId(1)
+              }
+              gitHubPullRequestDiscovery {
+                strategyId(1)
+              }
+              gitHubForkDiscovery {
+                strategyId(1)
+                trust {
+                  gitHubTrustContributors()
+                }
+              }
+              gitHubSkipNotifications()
+            }
           }
         }
         factory {
