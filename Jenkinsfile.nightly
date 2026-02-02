@@ -1,6 +1,6 @@
 #!/usr/bin/env groovy
 /**
- * Nightly Build Pipeline for reasonbridge
+ * Nightly Build Pipeline for ReasonBridge
  * Comprehensive nightly testing including full test suite and security scans
  *
  * Schedule: Runs daily at 2:00 AM (triggered by Jenkins cron)
@@ -9,11 +9,32 @@
  * - Full unit test coverage
  * - Integration tests
  * - E2E tests across all browsers
- * - Security audits (npm audit, snyk)
- * - Performance testing
+ * - Security audits (npm audit)
  * - Bundle analysis
+ *
+ * Note: This pipeline explicitly checks out the reasonbridge application repo
+ * (not reasonbridge-jenkins-lib where this Jenkinsfile lives).
  */
 
+// Load the shared library to access pipelineHelpers
+library identifier: 'reasonbridge-lib@main',
+    retriever: modernSCM([
+        $class: 'GitSCMSource',
+        remote: 'https://github.com/steiner385/reasonbridge-jenkins-lib.git',
+        credentialsId: 'github-credentials'
+    ])
+
+// Helper to checkout the ReasonBridge application repo (not the jenkins-lib repo)
+def checkoutReasonBridge() {
+    checkout([
+        $class: 'GitSCM',
+        branches: [[name: '*/main']],
+        userRemoteConfigs: [[
+            url: 'https://github.com/steiner385/reasonbridge.git',
+            credentialsId: 'github-credentials'
+        ]]
+    ])
+}
 
 pipeline {
     agent none
@@ -39,35 +60,41 @@ pipeline {
         stage('Initialize') {
             agent { label 'linux' }
             steps {
-                checkout scm
                 script {
+                    checkoutReasonBridge()
                     env.GIT_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                     env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
                 }
-                echo "Nightly build for reasonbridge - commit: ${env.GIT_COMMIT_SHORT}"
+                echo "Nightly build for ReasonBridge - commit: ${env.GIT_COMMIT_SHORT}"
             }
         }
 
         stage('Install Dependencies') {
             agent { label 'linux' }
             steps {
-                checkout scm
-                sh '''
-                    rm -f .npmrc
-                    npm config set registry https://registry.npmjs.org
-                    npm ci --legacy-peer-deps
-                '''
+                script {
+                    checkoutReasonBridge()
+                    def pm = pipelineHelpers.getPackageManager()
+                    echo "Using package manager: ${pm.name}"
+                    sh 'rm -f .npmrc'
+                    sh "${pm.install}"
+                }
             }
         }
 
         stage('Security Audit') {
             agent { label 'linux' }
             steps {
-                checkout scm
                 script {
-                    def auditResult = sh(script: 'npm audit --audit-level=high 2>&1 || true', returnStatus: true)
+                    checkoutReasonBridge()
+                    def pm = pipelineHelpers.getPackageManager()
+                    // Use package-manager-specific audit command
+                    def auditCmd = pm.name == 'pnpm' ? 'pnpm audit --audit-level=high' :
+                                   pm.name == 'yarn' ? 'yarn audit --level high' :
+                                   'npm audit --audit-level=high'
+                    def auditResult = sh(script: "${auditCmd} 2>&1 || true", returnStatus: true)
                     if (auditResult != 0) {
-                        unstable('npm audit found high severity vulnerabilities')
+                        unstable("${pm.name} audit found high severity vulnerabilities")
                     }
                 }
             }
@@ -78,13 +105,13 @@ pipeline {
                 stage('Unit Tests (Full Coverage)') {
                     agent { label 'unit' }
                     steps {
-                        checkout scm
-                        sh '''
-                            rm -f .npmrc
-                            npm config set registry https://registry.npmjs.org
-                            npm ci --legacy-peer-deps
-                        '''
-                        sh 'npm run test:unit -- --coverage'
+                        script {
+                            checkoutReasonBridge()
+                            def pm = pipelineHelpers.getPackageManager()
+                            sh 'rm -f .npmrc'
+                            sh "${pm.install}"
+                            sh "${pm.run} test:unit -- --coverage"
+                        }
                     }
                     post {
                         always {
@@ -93,7 +120,6 @@ pipeline {
                                     allure([
                                         includeProperties: false,
                                         jdk: '',
-                                        disableTrendGraph: true,  // Hide Allure trend chart (keep JUnit trend only)
                                         results: [[path: 'allure-results']]
                                     ])
                                 }
@@ -108,18 +134,21 @@ pipeline {
                         DATABASE_URL = 'postgresql://ci_user:ci_password@jenkins-postgres:5432/ci_test_db'
                     }
                     steps {
-                        checkout scm
-                        sh '''
-                            rm -f .npmrc
-                            npm config set registry https://registry.npmjs.org
-                            npm ci --legacy-peer-deps
-                        '''
-                        sh 'npm run db:migrate:test || true'
-                        sh 'npm run test:integration || true'
+                        script {
+                            checkoutReasonBridge()
+                            def pm = pipelineHelpers.getPackageManager()
+                            sh 'rm -f .npmrc'
+                            sh "${pm.install}"
+                            sh "${pm.run} db:migrate:test || true"
+                            sh "${pm.run} test:integration || true"
+                        }
                     }
                     post {
                         always {
-                            sh 'npm run db:teardown:test || true'
+                            script {
+                                def pm = pipelineHelpers.getPackageManager()
+                                sh "${pm.run} db:teardown:test || true"
+                            }
                         }
                     }
                 }
@@ -127,17 +156,17 @@ pipeline {
                 stage('E2E Tests (All Browsers)') {
                     agent { label 'e2e' }
                     steps {
-                        checkout scm
-                        sh '''
-                            rm -f .npmrc
-                            npm config set registry https://registry.npmjs.org
-                            npm ci --legacy-peer-deps
-                        '''
-                        // Install all browsers for nightly full browser matrix
-                        sh 'npx playwright install'
-                        sh 'npm run build'
-                        sh 'rm -rf allure-results'
-                        sh 'npm run test:e2e -- --project=chromium --project=firefox --project=webkit || true'
+                        script {
+                            checkoutReasonBridge()
+                            def pm = pipelineHelpers.getPackageManager()
+                            sh 'rm -f .npmrc'
+                            sh "${pm.install}"
+                            // Install all browsers for nightly full browser matrix
+                            sh 'npx playwright install'
+                            sh "${pm.run} build"
+                            sh 'rm -rf allure-results'
+                            sh "${pm.run} test:e2e -- --project=chromium --project=firefox --project=webkit || true"
+                        }
                     }
                     post {
                         always {
@@ -147,7 +176,6 @@ pipeline {
                                     allure([
                                         includeProperties: false,
                                         jdk: '',
-                                        disableTrendGraph: true,  // Hide Allure trend chart (keep JUnit trend only)
                                         results: [[path: 'allure-results']]
                                     ])
                                 }
@@ -161,13 +189,13 @@ pipeline {
         stage('Build & Bundle Analysis') {
             agent { label 'linux' }
             steps {
-                checkout scm
-                sh '''
-                    rm -f .npmrc
-                    npm config set registry https://registry.npmjs.org
-                    npm ci --legacy-peer-deps
-                '''
-                sh 'npm run build'
+                script {
+                    checkoutReasonBridge()
+                    def pm = pipelineHelpers.getPackageManager()
+                    sh 'rm -f .npmrc'
+                    sh "${pm.install}"
+                    sh "${pm.run} build"
+                }
             }
         }
 
@@ -176,7 +204,7 @@ pipeline {
             steps {
                 script {
                     def summary = """
-## reasonbridge Nightly Build Summary
+## ReasonBridge Nightly Build Summary
 
 **Build**: #${env.BUILD_NUMBER}
 **Date**: ${new Date().format('yyyy-MM-dd HH:mm:ss')}
@@ -202,22 +230,24 @@ pipeline {
 
     post {
         always {
-            script {
-                // Analyze Allure results from all test stages and create specific issues
-                if (fileExists('allure-results')) {
-                    analyzeAllureFailures(
-                        allureResultsDir: 'allure-results',
-                        testType: 'Nightly',
-                        maxIssues: 20  // Higher limit for nightly (multiple test types)
-                    )
+            node('linux') {
+                script {
+                    // Analyze Allure results from all test stages and create specific issues
+                    if (fileExists('allure-results')) {
+                        analyzeAllureFailures(
+                            allureResultsDir: 'allure-results',
+                            testType: 'Nightly',
+                            maxIssues: 20  // Higher limit for nightly (multiple test types)
+                        )
+                    }
                 }
             }
         }
         success {
-            echo 'reasonbridge nightly build succeeded!'
+            echo 'ReasonBridge nightly build succeeded!'
         }
         failure {
-            echo 'reasonbridge nightly build failed - check GitHub issues for specific failures'
+            echo 'ReasonBridge nightly build failed - check GitHub issues for specific failures'
         }
     }
 }
