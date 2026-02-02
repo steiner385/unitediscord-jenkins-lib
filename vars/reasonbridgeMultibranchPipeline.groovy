@@ -321,7 +321,7 @@ def call() {
                             echo "Verifying no E2E containers remain..."
                             sh '''
                                 echo "=== Remaining E2E/test containers ==="
-                                docker ps -a --format '{{.Names}}' | grep -E '(e2e-build-|unite-.*-(test|e2e)|postgres|redis|localstack)' || echo "No test/e2e containers found - cleanup successful"
+                                docker ps -a --format '{{.Names}}' | grep -E '(e2e-build-|reasonbridge-.*-(test|e2e)|postgres|redis|localstack)' || echo "No test/e2e containers found - cleanup successful"
                             '''
 
                             // NOTE: Playwright browsers are NOT installed here - they're pre-installed in the
@@ -391,7 +391,7 @@ def call() {
                                         # Check health from INSIDE the Docker network using a curl container
                                         # This avoids the Jenkins agent network isolation issue - Jenkins agents
                                         # run in Docker containers, so localhost doesn't reach E2E services
-                                        if docker run --rm --network ${E2E_PROJECT_NAME}_unite-e2e curlimages/curl:latest \
+                                        if docker run --rm --network ${E2E_PROJECT_NAME}_reasonbridge-e2e curlimages/curl:latest \
                                             curl -f -s "http://${service}:$port/health" > /dev/null 2>&1; then
                                             echo "✅ $service is ready and healthy on port $port (attempt $i/$MAX_ATTEMPTS)"
                                             break
@@ -427,7 +427,7 @@ def call() {
                                 # This avoids host-to-container networking issues
                                 echo "Running Prisma migrations on E2E database..."
                                 COMPOSE_PROJECT_NAME=$E2E_PROJECT_NAME docker compose -f docker-compose.e2e.yml exec -T postgres sh -c "
-                                    until pg_isready -U unite_test -d unite_test; do
+                                    until pg_isready -U reasonbridge_test -d reasonbridge_test; do
                                         echo 'Waiting for postgres...';
                                         sleep 1;
                                     done
@@ -483,7 +483,7 @@ def call() {
                             sh '''
                                 echo "DEBUG: =========================================="
                                 echo "DEBUG: Setting up Playwright test container"
-                                echo "DEBUG: Network: ${E2E_PROJECT_NAME}_unite-e2e"
+                                echo "DEBUG: Network: ${E2E_PROJECT_NAME}_reasonbridge-e2e"
                                 echo "DEBUG: PLAYWRIGHT_BASE_URL: http://frontend:80"
                                 echo "DEBUG: Playwright version: v1.57.0-noble"
                                 echo "DEBUG: =========================================="
@@ -496,7 +496,7 @@ def call() {
                                 # 1302 tests across 3 browsers require more memory than initial 636MB estimate
                                 docker run -d \
                                     --name "$CONTAINER_NAME" \
-                                    --network ${E2E_PROJECT_NAME}_unite-e2e \
+                                    --network ${E2E_PROJECT_NAME}_reasonbridge-e2e \
                                     --memory 4g \
                                     -w /app/frontend \
                                     -e CI=true \

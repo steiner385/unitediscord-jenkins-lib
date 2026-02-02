@@ -6,7 +6,7 @@
  * Features:
  * - Docker Compose v1/v2 fallback support
  * - Port cleanup via lsof/kill
- * - Container cleanup by project name pattern (e2e-build-*, unite-*-test)
+ * - Container cleanup by project name pattern (e2e-build-*, reasonbridge-*-test)
  * - Stale network cleanup
  * - Optional lockfile cleanup
  *
@@ -137,11 +137,11 @@ def aggressiveE2ECleanup() {
 
         # Step 2: Remove containers by name pattern (for containers not yet bound to ports)
         echo "=== Removing E2E containers by name pattern ==="
-        docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^e2e-build-|^unite-.*-e2e|^playwright-e2e-' | xargs -r docker rm -f 2>/dev/null || true
+        docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^e2e-build-|^reasonbridge-.*-e2e|^playwright-e2e-' | xargs -r docker rm -f 2>/dev/null || true
 
         # Remove integration test containers (both old shared and new build-specific)
         echo "=== Removing integration test containers ==="
-        docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^int-test-build-|^unite-.*-test|postgres.*test|redis.*test|localstack.*test' | xargs -r docker rm -f 2>/dev/null || true
+        docker ps -a --format '{{.Names}}' 2>/dev/null | grep -E '^int-test-build-|^reasonbridge-.*-test|postgres.*test|redis.*test|localstack.*test' | xargs -r docker rm -f 2>/dev/null || true
 
         # Step 3: Kill docker-proxy processes holding E2E ports
         # docker-proxy can hold ports even after containers are removed
@@ -169,7 +169,7 @@ def aggressiveE2ECleanup() {
 
         # Step 5: Remove networks (after containers are removed)
         echo "=== Removing test networks ==="
-        docker network ls --format '{{.Name}}' 2>/dev/null | grep -E '^e2e-build-|^int-test-build-|_unite-e2e$|_unite-test$' | xargs -r docker network rm 2>/dev/null || true
+        docker network ls --format '{{.Name}}' 2>/dev/null | grep -E '^e2e-build-|^int-test-build-|_reasonbridge-e2e$|_reasonbridge-test$' | xargs -r docker network rm 2>/dev/null || true
 
         # Prune unused networks (safe - only removes unused)
         docker network prune -f 2>/dev/null || true
