@@ -36,21 +36,15 @@
  */
 
 def call() {
-    // Pre-flight branch check (runs without allocating an agent)
-    def isPR = env.CHANGE_ID != null
-    def isProtectedBranch = env.BRANCH_NAME in ['main', 'develop', 'staging'] || env.BRANCH_NAME?.startsWith('deploy/')
-
-    if (!isPR && !isProtectedBranch) {
-        echo "⏭️ Skipping build for branch: ${env.BRANCH_NAME}"
-        echo "This branch will be built when a PR is created."
-        echo ""
-        echo "To prevent these build entries entirely, configure Branch Source filtering in Jenkins:"
-        echo "  Configure > Branch Sources > Behaviors > Filter by name (with regular expression)"
-        echo "  Include: (main|develop|staging|deploy/.*)"
-        currentBuild.result = 'NOT_BUILT'
-        currentBuild.description = "Skipped: feature branch (no PR)"
-        return
-    }
+    // With ONLY_PRS discovery strategy, Jenkins only discovers branches that have open PRs.
+    // This means any branch that exists in Jenkins already has an associated PR.
+    // No need to check env.CHANGE_ID since the discovery strategy handles filtering.
+    //
+    // Branch types that will be built:
+    //   - main, develop, staging - protected branches (always discovered)
+    //   - deploy/* - deployment branches (always discovered)
+    //   - feature branches - only discovered when they have open PRs
+    echo "🚀 Running CI for branch: ${env.BRANCH_NAME}"
 
     pipeline {
         agent any
