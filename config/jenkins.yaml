@@ -324,7 +324,7 @@ jobs:
             // We use explicit githubStatusReporter() calls in the pipeline instead
             traits {
               gitHubBranchDiscovery {
-                strategyId(1)
+                strategyId(2)  // ONLY_PRS - only discover branches with open PRs
               }
               gitHubPullRequestDiscovery {
                 strategyId(1)
