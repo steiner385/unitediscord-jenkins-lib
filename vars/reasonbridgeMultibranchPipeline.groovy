@@ -5,29 +5,31 @@
  * This is the actual pipeline definition, called from the minimal stub Jenkinsfile
  * in the main reasonbridge repo.
  *
- * Full CI pipeline: Lint, Unit Tests, Integration Tests, Contract Tests, E2E Tests, Build
+ * CI Strategy: Fast feedback on all pushes, full CI on PRs and protected branches
  *
- * Stages:
+ * Stages (by build type):
+ *
+ *   ALL BUILDS (feature branch pushes):
  *   - Initialize: Setup, checkout, and GitHub status reporting
  *   - Install Dependencies: pnpm install with frozen lockfile
  *   - Build Packages: Build shared packages and generate Prisma client
  *   - Lint: ESLint and code quality checks
  *   - Unit Tests: Run unit tests (backend + frontend) - 1,221 tests
- *   - Integration Tests: Run integration tests - 124 tests (always run)
- *   - Contract Tests: API contract validation tests (framework ready)
- *   - E2E Tests: End-to-end browser tests with Playwright - 301 tests (all branches except staging/*)
  *   - Build: Production build and artifact generation
+ *
+ *   FULL CI (PRs + protected branches: main, develop, staging, deploy/*):
+ *   - All of the above, plus:
+ *   - Integration Tests: Run integration tests - 124 tests
+ *   - Contract Tests: API contract validation tests
+ *   - E2E Tests: End-to-end browser tests with Playwright - 301 tests
  *
  * Multi-branch Jenkins provides these environment variables automatically:
  *   BRANCH_NAME   - Current branch name
  *   CHANGE_ID     - PR number (null if not a PR build)
  *
- * Branch Filtering:
- *   - Only PRs and protected branches (main, develop, staging, deploy/*) are built
- *   - Other branch pushes are skipped immediately without allocating an executor
- *   - To prevent build entries entirely, configure Branch Source in Jenkins UI:
- *     Configure > Branch Sources > GitHub > Behaviors > Filter by name (with regular expression)
- *     Include: (main|develop|staging|deploy/.*)
+ * Branch Discovery: ALL branches are discovered
+ *   - Feature branches get fast CI (lint + unit tests) ~3-5 min
+ *   - PRs and protected branches get full CI ~15-20 min
  *
  * Webhook Setup:
  *   URL: https://jenkins.kindash.com/github-webhook/
@@ -35,16 +37,37 @@
  *   Events: Push, Pull requests
  */
 
+/**
+ * Determines if full CI should run (integration, contract, E2E tests)
+ * Full CI runs for:
+ *   - Pull requests (env.CHANGE_ID is set)
+ *   - Protected branches: main, develop, staging, deploy/*
+ */
+def isFullCI() {
+    // PR builds always get full CI
+    if (env.CHANGE_ID) {
+        return true
+    }
+    // Protected branches get full CI
+    def protectedBranches = ['main', 'master', 'develop', 'staging']
+    if (env.BRANCH_NAME in protectedBranches) {
+        return true
+    }
+    // Deploy branches get full CI
+    if (env.BRANCH_NAME?.startsWith('deploy/')) {
+        return true
+    }
+    return false
+}
+
 def call() {
-    // With ONLY_PRS discovery strategy, Jenkins only discovers branches that have open PRs.
-    // This means any branch that exists in Jenkins already has an associated PR.
-    // No need to check env.CHANGE_ID since the discovery strategy handles filtering.
-    //
-    // Branch types that will be built:
-    //   - main, develop, staging - protected branches (always discovered)
-    //   - deploy/* - deployment branches (always discovered)
-    //   - feature branches - only discovered when they have open PRs
-    echo "🚀 Running CI for branch: ${env.BRANCH_NAME}"
+    // Determine build type for logging
+    def fullCI = isFullCI()
+    def buildMode = fullCI ? "FULL CI" : "FAST CI (lint + unit tests only)"
+    echo "🚀 Running ${buildMode} for branch: ${env.BRANCH_NAME}"
+    if (!fullCI) {
+        echo "ℹ️  Open a PR to run integration, contract, and E2E tests"
+    }
 
     pipeline {
         agent any
@@ -81,8 +104,15 @@ def call() {
                     script {
                         // Determine build type for logging and status reporting
                         def buildType = env.CHANGE_ID ? "PR #${env.CHANGE_ID}" : "Branch: ${env.BRANCH_NAME}"
+                        def ciMode = isFullCI() ? "Full CI" : "Fast CI"
                         echo "=== Multi-Branch Build ==="
                         echo "Build type: ${buildType}"
+                        echo "CI Mode: ${ciMode}"
+                        if (isFullCI()) {
+                            echo "Stages: Lint → Unit → Integration → Contract → E2E → Build"
+                        } else {
+                            echo "Stages: Lint → Unit → Build (open PR for full CI)"
+                        }
                         if (env.CHANGE_ID) {
                             echo "PR Title: ${env.CHANGE_TITLE ?: 'N/A'}"
                             echo "PR Author: ${env.CHANGE_AUTHOR ?: 'N/A'}"
@@ -91,10 +121,11 @@ def call() {
                         echo "=========================="
 
                         // Report pending status to GitHub
+                        def statusDesc = isFullCI() ? "Full CI started" : "Fast CI started (lint + unit tests)"
                         githubStatusReporter(
                             status: 'pending',
                             context: 'jenkins/ci',
-                            description: "Build started for ${buildType}"
+                            description: "${statusDesc} for ${buildType}"
                         )
                         // Note: GithubSkipNotifications trait in job config suppresses
                         // automatic continuous-integration/jenkins/branch status
@@ -195,6 +226,9 @@ def call() {
             }
 
             stage('Integration Tests') {
+                when {
+                    expression { isFullCI() }
+                }
                 options {
                     // Acquire shared lock to prevent concurrent resource-intensive tests
                     // This lock is shared across all multibranch pipelines to prevent OOM
@@ -223,6 +257,9 @@ def call() {
             }
 
             stage('Contract Tests') {
+                when {
+                    expression { isFullCI() }
+                }
                 steps {
                     sh 'npx pnpm run test:contract'
                 }
@@ -232,8 +269,12 @@ def call() {
             // This prevents other pipelines from running their E2E stages while this one is active
             stage('E2E Environment') {
                 when {
-                    // Skip E2E for staging branches (dependency updates that passed lint/unit/integration)
                     expression {
+                        // Only run E2E for full CI builds (PRs and protected branches)
+                        if (!isFullCI()) {
+                            return false
+                        }
+                        // Skip E2E for staging branches (dependency updates that passed lint/unit/integration)
                         def sourceBranch = env.CHANGE_BRANCH ?: env.BRANCH_NAME
                         return !(sourceBranch?.startsWith('staging/'))
                     }
