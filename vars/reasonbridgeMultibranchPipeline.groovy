@@ -120,13 +120,17 @@ def call() {
                         }
                         echo "=========================="
 
-                        // Report pending status to GitHub
-                        def statusDesc = isFullCI() ? "Full CI started" : "Fast CI started (lint + unit tests)"
-                        githubStatusReporter(
-                            status: 'pending',
-                            context: 'jenkins/ci',
-                            description: "${statusDesc} for ${buildType}"
-                        )
+                        // NOTE: jenkins/ci status is only reported at build completion (post block)
+                        // NOT at build start. This prevents the race condition where:
+                        //   1. jenkins/ci: pending is reported
+                        //   2. Individual stage checks (lint, unit-tests, integration) pass
+                        //   3. GitHub allows merge because pending != failure
+                        //   4. E2E tests run for 20+ more minutes
+                        //   5. jenkins/ci: failure is reported AFTER merge
+                        //
+                        // By NOT reporting pending, GitHub's "required check not yet reported"
+                        // logic blocks the merge until the entire pipeline completes.
+                        echo "Build type: ${buildType} (${isFullCI() ? 'Full CI' : 'Fast CI'})"
                         // Note: GithubSkipNotifications trait in job config suppresses
                         // automatic continuous-integration/jenkins/branch status
                     }
