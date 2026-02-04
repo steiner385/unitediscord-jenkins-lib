@@ -40,7 +40,7 @@
 /**
  * Determines if full CI should run (integration, contract, E2E tests)
  * Full CI runs for:
- *   - Pull requests (env.CHANGE_ID is set)
+ *   - Pull requests (env.CHANGE_ID is set, or PR exists for branch)
  *   - Protected branches: main, develop, staging, deploy/*
  */
 def isFullCI() {
@@ -57,7 +57,42 @@ def isFullCI() {
     if (env.BRANCH_NAME?.startsWith('deploy/')) {
         return true
     }
+    // Check if a PR exists for this branch (handles buildOriginBranchWithPR=true case)
+    // When building the branch directly, env.CHANGE_ID is null even if a PR exists
+    if (env.HAS_OPEN_PR == 'true') {
+        return true
+    }
     return false
+}
+
+/**
+ * Check if the current branch has an open PR
+ * Sets env.HAS_OPEN_PR to 'true' if a PR exists
+ */
+def checkForOpenPR() {
+    try {
+        withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+            def result = sh(
+                script: """
+                    curl -s -H "Authorization: token \$GITHUB_TOKEN" \
+                        -H "Accept: application/vnd.github.v3+json" \
+                        "https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/pulls?head=${env.GITHUB_OWNER}:${env.BRANCH_NAME}&state=open" \
+                        | grep -c '"number"' || echo "0"
+                """,
+                returnStdout: true
+            ).trim()
+            if (result.toInteger() > 0) {
+                env.HAS_OPEN_PR = 'true'
+                echo "Found open PR for branch ${env.BRANCH_NAME}"
+            } else {
+                env.HAS_OPEN_PR = 'false'
+                echo "No open PR found for branch ${env.BRANCH_NAME}"
+            }
+        }
+    } catch (Exception e) {
+        echo "Warning: Could not check for open PR: ${e.message}"
+        env.HAS_OPEN_PR = 'false'
+    }
 }
 
 def call() {
@@ -102,8 +137,14 @@ def call() {
             stage('Initialize') {
                 steps {
                     script {
+                        // Check if branch has an open PR (for buildOriginBranchWithPR=true case)
+                        // This must run before isFullCI() to set env.HAS_OPEN_PR
+                        if (!env.CHANGE_ID) {
+                            checkForOpenPR()
+                        }
+
                         // Determine build type for logging and status reporting
-                        def buildType = env.CHANGE_ID ? "PR #${env.CHANGE_ID}" : "Branch: ${env.BRANCH_NAME}"
+                        def buildType = env.CHANGE_ID ? "PR #${env.CHANGE_ID}" : (env.HAS_OPEN_PR == 'true' ? "Branch with PR: ${env.BRANCH_NAME}" : "Branch: ${env.BRANCH_NAME}")
                         def ciMode = isFullCI() ? "Full CI" : "Fast CI"
                         echo "=== Multi-Branch Build ==="
                         echo "Build type: ${buildType}"
