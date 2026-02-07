@@ -16,8 +16,12 @@
 
 def call(Map config = [:]) {
     def statusContext = config.statusContext ?: 'jenkins/lint'
-    def lintCommand = config.lintCommand ?: 'npm run lint'
-    def typeCheckCommand = config.typeCheckCommand ?: 'npm run type-check'
+
+    // Auto-detect package manager and set appropriate commands
+    def packageManager = fileExists('pnpm-lock.yaml') ? 'pnpm' : 'npm'
+    def lintCommand = config.lintCommand ?: "${packageManager} run lint"
+    def typeCheckCommand = config.typeCheckCommand ?: "${packageManager} run type-check"
+
     def skipLint = config.skipLint ?: false
     def skipTypeCheck = config.skipTypeCheck ?: false
     def typeCheckIgnoreErrors = config.typeCheckIgnoreErrors ?: false
