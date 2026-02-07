@@ -652,6 +652,7 @@ def call() {
                                     -e PLAYWRIGHT_BASE_URL='http://frontend:80' \
                                     -e CI=true \
                                     "$CONTAINER_NAME" bash -c "
+                                    set -e -o pipefail  # Exit on error, catch pipe failures
                                     echo 'DEBUG: Inside container - Starting E2E test execution'
                                     echo 'DEBUG: Working directory:' \$(pwd)
                                     echo 'DEBUG: PLAYWRIGHT_BASE_URL=' \$PLAYWRIGHT_BASE_URL
@@ -662,7 +663,7 @@ def call() {
                                     # not the @playwright/test package that our config file imports
                                     # NOTE: allure-playwright is NOT installed (skipped in CI via playwright.config.ts)
                                     echo 'DEBUG: Installing @playwright/test...'
-                                    npm install @playwright/test@1.58.0 --no-save --prefer-offline 2>&1 | tail -3 || npm install @playwright/test@1.58.0 --no-save
+                                    (npm install @playwright/test@1.58.0 --no-save --prefer-offline 2>&1 | tail -3) || npm install @playwright/test@1.58.0 --no-save
                                     echo 'DEBUG: Playwright version:' \$(npx playwright --version)
 
                                     echo 'DEBUG: Starting Playwright tests...'
