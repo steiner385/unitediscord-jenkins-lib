@@ -662,8 +662,9 @@ def call() {
                                     # The official Playwright Docker image has browsers pre-installed but
                                     # not the @playwright/test package that our config file imports
                                     # NOTE: allure-playwright is NOT installed (skipped in CI via playwright.config.ts)
+                                    # NOTE: --legacy-peer-deps bypasses peer dependency conflicts (e.g., react-joyride requiring React 15-18 while we use 19)
                                     echo 'DEBUG: Installing @playwright/test...'
-                                    (npm install @playwright/test@1.58.0 --no-save --prefer-offline 2>&1 | tail -3) || npm install @playwright/test@1.58.0 --no-save
+                                    (npm install @playwright/test@1.58.0 --no-save --prefer-offline --legacy-peer-deps 2>&1 | tail -3) || npm install @playwright/test@1.58.0 --no-save --legacy-peer-deps
                                     echo 'DEBUG: Playwright version:' \$(npx playwright --version)
 
                                     echo 'DEBUG: Starting Playwright tests...'
