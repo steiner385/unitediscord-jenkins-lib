@@ -107,6 +107,10 @@ def call() {
     pipeline {
         agent any
 
+        triggers {
+            githubPush()
+        }
+
         environment {
             GITHUB_OWNER = 'steiner385'
             GITHUB_REPO = 'reasonbridge'
