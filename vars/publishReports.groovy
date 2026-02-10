@@ -65,21 +65,26 @@ def call(Map config = [:]) {
     if (config.allure) {
         archiveArtifacts artifacts: 'allure-results/**', allowEmptyArchive: true
 
-        script {
-            if (fileExists('allure-results')) {
-                def allureConfig = [
-                    includeProperties: false,
-                    jdk: '',
-                    results: [[path: 'allure-results']]
-                ]
+        // Try to publish Allure report if plugin is available
+        try {
+            script {
+                if (fileExists('allure-results')) {
+                    def allureConfig = [
+                        includeProperties: false,
+                        jdk: '',
+                        results: [[path: 'allure-results']]
+                    ]
 
-                // Add disableTrendGraph if specified (custom Allure plugin parameter)
-                if (config.disableTrendGraph != null) {
-                    allureConfig.disableTrendGraph = config.disableTrendGraph
+                    // Add disableTrendGraph if specified (custom Allure plugin parameter)
+                    if (config.disableTrendGraph != null) {
+                        allureConfig.disableTrendGraph = config.disableTrendGraph
+                    }
+
+                    allure allureConfig
                 }
-
-                allure allureConfig
             }
+        } catch (NoSuchMethodError e) {
+            echo "WARNING: Allure plugin not installed - skipping Allure report"
         }
     }
 
