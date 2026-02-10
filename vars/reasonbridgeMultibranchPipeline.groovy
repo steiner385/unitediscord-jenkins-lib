@@ -812,17 +812,21 @@ def call() {
                     }
                 }
 
-                // Publish Allure test reports
+                // Publish Allure test reports (if plugin is available)
                 script {
                     def allureDirs = ['allure-results', 'frontend/allure-results', 'backend/allure-results']
                     def existingDirs = allureDirs.findAll { fileExists(it) }
                     if (existingDirs) {
-                        allure([
-                            includeProperties: false,
-                            jdk: '',
-                            disableTrendGraph: true,  // Hide Allure trend chart (keep JUnit trend only)
-                            results: existingDirs.collect { [path: it] }
-                        ])
+                        try {
+                            allure([
+                                includeProperties: false,
+                                jdk: '',
+                                disableTrendGraph: true,  // Hide Allure trend chart (keep JUnit trend only)
+                                results: existingDirs.collect { [path: it] }
+                            ])
+                        } catch (NoSuchMethodError e) {
+                            echo "WARNING: Allure plugin not installed - skipping Allure report"
+                        }
                     }
                 }
             }
