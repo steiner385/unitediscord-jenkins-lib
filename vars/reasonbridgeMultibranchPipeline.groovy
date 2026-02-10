@@ -341,19 +341,30 @@ def call() {
                                 echo "This stage pre-pulls and pre-builds all Docker images BEFORE E2E tests"
                                 echo "to prevent memory spikes during test execution."
 
-                                // Pre-pull external Docker images (these are large and can cause memory spikes if pulled during E2E)
-                                echo "Pre-pulling external Docker images..."
+                                // Pre-pull external Docker images (skip if already cached locally)
+                                // This prevents Docker Hub timeout issues when images are already cached
+                                echo "Pre-pulling external Docker images (skipping if cached locally)..."
                                 sh '''
-                                    echo "Pulling Playwright Docker image (~1.5GB)..."
-                                    docker pull mcr.microsoft.com/playwright:v1.58.0-noble
+                                    pull_if_missing() {
+                                        local image="$1"
+                                        if docker image inspect "$image" > /dev/null 2>&1; then
+                                            echo "✓ $image already cached locally"
+                                        else
+                                            echo "Pulling $image..."
+                                            docker pull "$image" || echo "⚠ Warning: Failed to pull $image, continuing..."
+                                        fi
+                                    }
 
-                                    echo "Pulling curl image for health checks..."
-                                    docker pull curlimages/curl:latest
+                                    echo "Checking Playwright Docker image (~1.5GB)..."
+                                    pull_if_missing "mcr.microsoft.com/playwright:v1.58.0-noble"
 
-                                    echo "Pulling base images for E2E services..."
-                                    docker pull postgres:15-alpine
-                                    docker pull redis:7-alpine
-                                    docker pull localstack/localstack:3.0
+                                    echo "Checking curl image for health checks..."
+                                    pull_if_missing "curlimages/curl:latest"
+
+                                    echo "Checking base images for E2E services..."
+                                    pull_if_missing "postgres:15-alpine"
+                                    pull_if_missing "redis:7-alpine"
+                                    pull_if_missing "localstack/localstack:3.0"
 
                                     echo "All external images pre-pulled successfully"
                                 '''
