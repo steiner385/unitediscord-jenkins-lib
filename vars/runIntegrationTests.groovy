@@ -8,6 +8,7 @@
  * - Pre/post Docker cleanup
  * - GitHub status reporting
  * - JUnit report publishing
+ * - Automatic package building (includes Prisma client generation)
  *
  * Usage:
  *   runIntegrationTests()  // Use defaults
@@ -31,6 +32,14 @@ def call(Map config = [:]) {
 
     // Install dependencies if needed
     installDependencies()
+
+    // Build packages (includes Prisma client generation)
+    // This is required because integration tests need compiled packages
+    // and generated Prisma client which aren't in git
+    sh '''
+        echo "Building packages (required for Prisma client)..."
+        npx pnpm --filter "./packages/*" -r run build
+    '''
 
     // Pre-cleanup: clean this build's specific containers if using isolation
     if (projectName) {
