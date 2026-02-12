@@ -5,7 +5,7 @@
  *
  * Features:
  * - Pre/post Docker cleanup
- * - Resource locking (test-infrastructure)
+ * - Resource locking (test-infrastructure) [CURRENTLY DISABLED]
  * - Playwright browser installation
  * - GitHub status reporting
  * - Playwright and Allure report publishing
@@ -63,13 +63,15 @@ def call(Map config = [:]) {
         }
 
         // Run tests with or without lock
-        if (skipLock) {
-            runTests()
-        } else {
-            lock(resource: lockResource, inversePrecedence: true) {
-                runTests()
-            }
-        }
+        // LOCK DISABLED: Uncomment block below to re-enable resource locking for E2E tests
+        // if (skipLock) {
+        //     runTests()
+        // } else {
+        //     lock(resource: lockResource, inversePrecedence: true) {
+        //         runTests()
+        //     }
+        // }
+        runTests()
 
         // Report success
         githubStatusReporter(

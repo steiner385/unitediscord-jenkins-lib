@@ -4,7 +4,7 @@
  * Executes integration tests with Docker cleanup and build-specific isolation
  *
  * Features:
- * - Build-specific Docker project names (no resource locking needed)
+ * - Build-specific Docker project names (no resource locking needed) [LOCKS ALREADY DISABLED]
  * - Pre/post Docker cleanup
  * - GitHub status reporting
  * - JUnit report publishing
