@@ -18,7 +18,7 @@ def call(Map config = [:]) {
     // JUnit test results
     if (config.junit) {
         def junitPattern = config.junitPattern ?: '**/junit.xml'
-        junit testResults: junitPattern, allowEmptyResults: true
+        timeout(time: 2, unit: "MINUTES") { junit testResults: junitPattern, allowEmptyResults: true }
     }
 
     // Playwright HTML report
