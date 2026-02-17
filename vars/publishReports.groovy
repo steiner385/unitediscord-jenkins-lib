@@ -7,6 +7,7 @@
  * - Conditional publishing based on config
  * - Archives artifacts
  * - Handles missing reports gracefully
+ * - WSL2 /mnt path workaround for junit
  *
  * Usage:
  *   publishReports(junit: true)
@@ -18,7 +19,31 @@ def call(Map config = [:]) {
     // JUnit test results
     if (config.junit) {
         def junitPattern = config.junitPattern ?: '**/junit.xml'
-        timeout(time: 2, unit: "MINUTES") { junit testResults: junitPattern, allowEmptyResults: true }
+        def workspace = env.WORKSPACE ?: pwd()
+
+        // Workaround for WSL2 /mnt paths - JUnit plugin hangs reading from mounted Windows paths
+        if (workspace.startsWith('/mnt/')) {
+            echo "WSL2 mounted workspace detected, copying junit files to native Linux path..."
+            def tmpDir = "/tmp/junit-results-${env.BUILD_NUMBER}"
+            sh """
+                mkdir -p ${tmpDir}
+                find . -name 'junit.xml' -exec cp {} ${tmpDir}/ \\; 2>/dev/null || true
+                # Rename to avoid conflicts
+                cd ${tmpDir} && for f in *.xml; do [ -f "\$f" ] && mv "\$f" "\$(dirname \$f)/\$(basename \$f .xml)-\$RANDOM.xml" 2>/dev/null || true; done
+                ls -la ${tmpDir}/ || echo "No junit files found"
+            """
+            try {
+                timeout(time: 2, unit: 'MINUTES') {
+                    junit testResults: "${tmpDir}/*.xml", allowEmptyResults: true
+                }
+            } finally {
+                sh "rm -rf ${tmpDir}"
+            }
+        } else {
+            timeout(time: 2, unit: 'MINUTES') {
+                junit testResults: junitPattern, allowEmptyResults: true
+            }
+        }
     }
 
     // Playwright HTML report
