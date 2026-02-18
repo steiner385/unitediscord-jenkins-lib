@@ -381,6 +381,10 @@ def call() {
                     // NO 'when' clause - parent E2E Environment handles staging branch skip
                     // NO 'options/lock' - parent E2E Environment holds the lock for entire lifecycle
                     stage('E2E Tests') {
+                        environment {
+                            // Track retry results for flaky test detection (#392)
+                            FLAKY_TEST_TRACKING = 'true'
+                        }
                         steps {
                     // catchError marks stage as FAILURE (red) but build as UNSTABLE (yellow)
                     // This gives accurate visual feedback while allowing pipeline to continue
@@ -768,6 +772,157 @@ def call() {
                         }
                     }
                 }
+                    }
+
+                    // Accessibility Tests stage (#390) - WCAG 2.2 AA compliance
+                    // Runs axe-core accessibility checks against the E2E environment
+                    stage('Accessibility Tests') {
+                        steps {
+                            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                                script {
+                                    echo "=== Running Accessibility Tests ==="
+                                    echo "WCAG Level: 2.2 AA"
+                                    echo "Framework: axe-core via @axe-core/playwright"
+
+                                    // Report pending status
+                                    githubStatusReporter(
+                                        status: 'pending',
+                                        context: 'jenkins/accessibility',
+                                        description: 'Running WCAG 2.2 AA accessibility tests...'
+                                    )
+
+                                    // Run accessibility tests against the running E2E environment
+                                    // These tests are already in frontend/tests/e2e/accessibility/
+                                    def a11yResult = sh(
+                                        script: """
+                                            CONTAINER_NAME="playwright-a11y-runner-\$\$"
+                                            PLAYWRIGHT_URL="http://frontend:80"
+
+                                            echo "Creating accessibility test container..."
+                                            docker run -d \
+                                                --name "\$CONTAINER_NAME" \
+                                                --network ${env.E2E_PROJECT_NAME}_reasonbridge-e2e \
+                                                --memory 2g \
+                                                -w /app/frontend \
+                                                -e CI=true \
+                                                -e PLAYWRIGHT_BASE_URL=\$PLAYWRIGHT_URL \
+                                                mcr.microsoft.com/playwright:v1.58.0-noble \
+                                                sleep infinity
+
+                                            # Copy essential files
+                                            tar -chf - -C frontend tests/e2e/accessibility tests/e2e/helpers playwright.config.ts package.json tsconfig.json tsconfig.node.json | \
+                                                docker exec -i "\$CONTAINER_NAME" tar -xf - -C /app/frontend/
+
+                                            # Copy root tsconfig
+                                            tar -chf - tsconfig.base.json | docker exec -i "\$CONTAINER_NAME" tar -xf - -C /app/
+
+                                            # Run accessibility tests
+                                            docker exec \
+                                                -e PLAYWRIGHT_BASE_URL='http://frontend:80' \
+                                                -e CI=true \
+                                                "\$CONTAINER_NAME" bash -c "
+                                                    npm install @playwright/test@1.58.0 axe-playwright --no-save --legacy-peer-deps
+                                                    npx playwright test tests/e2e/accessibility/ --reporter=html,json --output=a11y-results
+                                                " || {
+                                                    EXIT_CODE=\$?
+                                                    # Copy results on failure
+                                                    docker cp "\$CONTAINER_NAME":/app/frontend/playwright-report ./frontend/a11y-report 2>/dev/null || true
+                                                    docker rm -f "\$CONTAINER_NAME" 2>/dev/null || true
+                                                    exit \$EXIT_CODE
+                                                }
+
+                                            # Copy results
+                                            docker cp "\$CONTAINER_NAME":/app/frontend/playwright-report ./frontend/a11y-report 2>/dev/null || true
+                                            docker rm -f "\$CONTAINER_NAME" 2>/dev/null || true
+                                        """,
+                                        returnStatus: true
+                                    )
+
+                                    if (a11yResult == 0) {
+                                        githubStatusReporter(
+                                            status: 'success',
+                                            context: 'jenkins/accessibility',
+                                            description: 'All WCAG 2.2 AA checks passed'
+                                        )
+                                        echo "✅ All accessibility tests passed"
+                                    } else {
+                                        githubStatusReporter(
+                                            status: 'failure',
+                                            context: 'jenkins/accessibility',
+                                            description: 'WCAG 2.2 AA violations found'
+                                        )
+                                        echo "❌ Accessibility tests failed"
+                                    }
+
+                                    // Publish accessibility report
+                                    if (fileExists('frontend/a11y-report')) {
+                                        publishHTML([
+                                            allowMissing: true,
+                                            alwaysLinkToLastBuild: true,
+                                            keepAll: true,
+                                            reportDir: 'frontend/a11y-report',
+                                            reportFiles: 'index.html',
+                                            reportName: 'Accessibility Report',
+                                            reportTitles: 'WCAG 2.2 AA Accessibility Report'
+                                        ])
+                                    }
+
+                                    echo "=== Accessibility Tests Complete ==="
+                                }
+                            }
+                        }
+                    }
+
+                    // Flaky Test Analysis stage (#392)
+                    // Analyzes test results to detect and report flaky tests
+                    stage('Flaky Test Analysis') {
+                        steps {
+                            script {
+                                echo "=== Analyzing Test Results for Flaky Tests ==="
+
+                                // Load quarantine data
+                                def quarantineFile = '.flaky-tests.json'
+                                def flakyTests = []
+
+                                try {
+                                    // Parse Playwright test results for retries
+                                    // Playwright with retries enabled produces retry info in results
+                                    if (fileExists('frontend/test-results')) {
+                                        def result = flakyTestQuarantine.analyzeResults(
+                                            testResultsDir: 'coverage',
+                                            quarantineFile: quarantineFile
+                                        )
+
+                                        flakyTests = result.flakyTests ?: []
+
+                                        if (flakyTests.size() > 0) {
+                                            echo "⚠️  Detected ${flakyTests.size()} flaky test(s)"
+
+                                            // Report flaky tests
+                                            flakyTestQuarantine.reportFlakyTests(
+                                                flakyTests: flakyTests,
+                                                createIssues: env.BRANCH_NAME == 'main'
+                                            )
+
+                                            // Save updated quarantine data
+                                            flakyTestQuarantine.saveQuarantine(result.quarantine, quarantineFile)
+
+                                            // Archive quarantine data
+                                            archiveArtifacts artifacts: quarantineFile, allowEmptyArchive: true
+                                        } else {
+                                            echo "✅ No flaky tests detected"
+                                        }
+                                    } else {
+                                        echo "No test results found for flaky test analysis"
+                                    }
+                                } catch (Exception e) {
+                                    echo "WARNING: Flaky test analysis failed: ${e.message}"
+                                    // Don't fail the build for flaky test analysis issues
+                                }
+
+                                echo "=== Flaky Test Analysis Complete ==="
+                            }
+                        }
                     }
                 }
             }
