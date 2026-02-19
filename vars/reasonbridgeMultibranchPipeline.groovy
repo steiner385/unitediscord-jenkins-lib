@@ -589,12 +589,12 @@ def call() {
                                 PLAYWRIGHT_URL="http://frontend:80"
 
                                 echo "Creating Playwright container: $CONTAINER_NAME"
-                                # Use 4g memory - with reduced agents (3 vs 8), we have more headroom
-                                # 1302 tests across 3 browsers require more memory than initial 636MB estimate
+                                # Use 3g memory - runner-3 has 6GB total, services need ~2GB
+                                # Reduced from 4g due to OOM (exit code 137) during E2E startup
                                 docker run -d \
                                     --name "$CONTAINER_NAME" \
                                     --network ${E2E_PROJECT_NAME}_reasonbridge-e2e \
-                                    --memory 4g \
+                                    --memory 3g \
                                     -w /app/frontend \
                                     -e CI=true \
                                     -e E2E_DOCKER=true \
